@@ -170,11 +170,11 @@ svg text{font-family:inherit}
     </div>
     <div class="card" id="parseMsg" style="display:none"></div>
     <div class="card" id="exportCard" style="display:none">
-      <div style="font-weight:800;margin-bottom:4px">生成會員版(可分享)</div>
-      <div class="hint">生成一個自含嘅會員版 HTML(數據已內嵌,唔含生意額)。直接 send 俾會員或放上網,會員開檔揀自己名就睇到燈號/雷達圖/升燈貼士。密碼選填。</div>
+      <div style="font-weight:800;margin-bottom:4px">更新會員版(手機都開到)</div>
+      <div class="hint">會員版係一條固定網址,手機一撳就開。呢度生成當月數據檔 <b>member-data.json</b>(唔含生意額),放上網站就更新。<b>因為網址係公開,建議設一個分會密碼</b>(唔係任何人都睇到全會成績);留空 = 免密碼(任何知道網址嘅人都睇到)。</div>
       <div class="row" style="margin-top:8px">
         <div><label class="f">密碼保護(選填,留空 = 免密碼)</label><input id="memberPw" type="text" placeholder="留空即免密碼"></div>
-        <div style="display:flex;align-items:flex-end"><button class="btn" id="genMemberBtn">⬇️ 生成會員版 HTML</button></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn" id="genMemberBtn">⬇️ 生成當月數據檔</button></div>
       </div>
       <div id="genMsg" class="hint" style="margin-top:6px"></div>
     </div>
@@ -733,25 +733,21 @@ async function genMemberData(){
   if(!STATE.cur){alert('請先上傳月報。');return;}
   const pw=document.getElementById('memberPw').value.trim();
   const data=buildMemberData();
-  let embedded;
+  let out;
   if(pw){
     if(pw.length<4){alert('密碼太短(至少 4 位)。想免密碼就留空。');return;}
     const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
     const key=await deriveKeyEnc(pw,salt);
     const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(JSON.stringify(data)));
-    embedded={v:1,s:b64e(salt),iv:b64e(iv),ct:b64e(ct)};
-  }else{embedded=data;}
-  let tpl;
-  try{tpl=await (await fetch('member.html',{cache:'no-store'})).text();}
-  catch(e){document.getElementById('genMsg').innerHTML='⚠️ 攞唔到 member.html 範本。請用<b>網址版</b>工具生成(https://carriehw.github.io/bni-traffic-light/),或者確保 member.html 同呢個工具喺同一資料夾。';return;}
-  const logoLine=LOGO_DATAURI?`window.__LOGO__=${JSON.stringify(LOGO_DATAURI)};`:'';
-  const inject=`<script>window.__EMBEDDED__=${JSON.stringify(embedded)};${logoLine}<\/script>`;
-  const html=tpl.replace('</head>',inject+'</head>');
-  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  const pd=(STATE.cur.period||'').replace(/[^0-9]/g,'').slice(0,6)||'';
-  a.download=`BINGO紅黃綠燈-${pd}.html`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
-  document.getElementById('genMsg').innerHTML=`✅ 已生成 <b>BINGO紅黃綠燈-${pd}.html</b>(${STATE.cur.rows.length} 位會員,${pw?'有密碼保護':'免密碼'})。直接 send 俾會員或放上網就用得,會員開檔揀名睇自己。`;
+    out={v:1,s:b64e(salt),iv:b64e(iv),ct:b64e(ct)};
+  }else{out=data;}
+  const blob=new Blob([JSON.stringify(out)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='member-data.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  document.getElementById('genMsg').innerHTML=`✅ 已生成 <b>member-data.json</b>(${STATE.cur.rows.length} 位會員,${pw?'有密碼保護':'免密碼'})。<br>
+    <b>下一步(手機都開到,唔使打指令):</b><br>
+    1. <a href="https://github.com/carriehw/bni-traffic-light/upload/main" target="_blank" style="color:var(--maroon);font-weight:800">▶ 撳呢度開 GitHub 上載頁</a><br>
+    2. 將啱啱下載嘅 <b>member-data.json</b> 拖入去,最底撳綠色掣「Commit changes」<br>
+    3. 完成!會員手機開呢條就得:<a href="https://carriehw.github.io/bni-traffic-light/member.html" target="_blank" style="color:var(--maroon);font-weight:800">會員版網址</a>${pw?`(密碼:<b>${esc(pw)}</b>)`:''}`;
 }
 document.getElementById('genMemberBtn').onclick=genMemberData;
 

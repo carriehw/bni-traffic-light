@@ -19,3 +19,5 @@ bni-bingo-*.json      # exportJSON 匯出(未加密,含姓名/生意額)— 絕�
 Thumbs.db
 __pycache__/
 *.pyc
+
+logo.jpg
