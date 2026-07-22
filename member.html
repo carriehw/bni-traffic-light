@@ -76,19 +76,26 @@ async function decryptJSON(pkg,pw){const key=await deriveKey(pw,ub64(pkg.s));
   const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:ub64(pkg.iv)},key,ub64(pkg.ct));return JSON.parse(new TextDecoder().decode(pt));}
 
 async function loadPkg(){
+  if(window.__EMBEDDED__){PKG=window.__EMBEDDED__;return;} // 自含版:數據已內嵌
   try{const r=await fetch('member-data.json',{cache:'no-store'});if(r.ok)PKG=await r.json();}catch(e){}
+}
+function showPicker(){
+  document.getElementById('gate').classList.add('hide');
+  document.getElementById('picker').classList.remove('hide');
+  document.getElementById('periodLine').textContent=(DATA.chapter||'BINGO')+' · '+(DATA.period||'');
+  renderList('');
+}
+async function init(){
+  await loadPkg();
+  if(PKG&&PKG.members){DATA=PKG;showPicker();}          // 免密碼(明文內嵌)
+  // 否則保持密碼閘(加密數據)
 }
 document.getElementById('enterBtn').onclick=async()=>{
   const pw=document.getElementById('pw').value;
   if(!PKG)await loadPkg();
   if(!PKG){document.getElementById('pwErr').textContent='搵唔到資料檔 member-data.json。';document.getElementById('pwErr').classList.remove('hide');return;}
-  try{
-    DATA=await decryptJSON(PKG,pw);
-    document.getElementById('gate').classList.add('hide');
-    document.getElementById('picker').classList.remove('hide');
-    document.getElementById('periodLine').textContent=(DATA.chapter||'BINGO')+' · '+(DATA.period||'');
-    renderList('');
-  }catch(e){document.getElementById('pwErr').classList.remove('hide');}
+  try{DATA=await decryptJSON(PKG,pw);showPicker();}
+  catch(e){document.getElementById('pwErr').classList.remove('hide');}
 };
 document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('enterBtn').click();});
 
@@ -136,7 +143,7 @@ function renderMember(name){
 }
 function copyRecap(){const t=document.getElementById('recapBox').innerText;navigator.clipboard.writeText(t).then(()=>{const b=event.target;const o=b.textContent;b.textContent='✓ 已複製';setTimeout(()=>b.textContent=o,1200);});}
 function esc(s){return(''+s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
-loadPkg();
+init();
 </script>
 </body>
 </html>

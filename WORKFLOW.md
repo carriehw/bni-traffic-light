@@ -70,23 +70,25 @@ bni-traffic-light/
 - as-of 日期、預測月份、綠燈專員/聯絡人名(用喺 recap)
 - 綠燈分數線(預設 70,一般唔使改)
 
-## 5. Phase 2 — 會員自助登入版(已建立)
+## 5. 會員版 — 自含檔案分享(最簡單,唔使打指令)
 
-**登入方式**:共用密碼 + 自己揀名(用戶選定)。
-**做法**:加密靜態頁,唔使 Google、唔使後端,留喺 GitHub Pages。
-- `member.html` — 會員入口頁(靜態)。
-- `member-data.json` — 全會資料,經 **WebCrypto AES-256-GCM** 用分會共用密碼加密。放上 Pages 都解唔到(冇密碼)。
+**做法**:LT 工具一撳生成一個**自含嘅 HTML**(數據內嵌),直接 send 俾會員或放上網。會員開檔揀自己名就睇到燈號/雷達圖/升燈貼士。
 
-**每月部署流程(LT)**:
-1. 用 `index.html`(admin 工具)上傳月報 → 去【① 上傳】頁底「產生會員自助版」。
-2. 輸入**分會共用密碼**(⚠️ 要強,唔好用易估嘅)→ 撳「🔐 產生 member-data.json」→ 下載。
-3. 將 `member-data.json` 放入 repo(覆蓋舊嗰個)→ `git add member-data.json && git commit && git push`。
-4. 會員開 `carriehw.github.io/bni-traffic-light/member.html` → 入密碼 → 揀自己名 → 睇燈號/雷達圖/升燈貼士/完整訊息。
+**每月流程(LT)**:
+1. 開 LT 工具(`index.html` 網址版或單一檔案)→ 上傳月報。
+2. 去【① 上傳】頁底「生成會員版(可分享)」。
+3. 密碼**選填**:留空 = 會員一開就見(免密碼);填咗 = 會員要入密碼先解到(AES-256 加密)。
+4. 撳「⬇️ 生成會員版 HTML」→ 下載 `BINGO紅黃綠燈-YYYYMM.html`。
+5. 將個檔 send 落會員 WhatsApp/WeChat 群(或者放上任何網頁空間)。會員開檔揀名睇自己。
+
+**點解咁樣最簡單**:唔使每月 git、唔使上傳 GitHub、唔使後端。一個檔搞掂,離線都開到。
 
 **私隱**:
-- `member-data.json` 只含分數/燈號/貼士/recap,**唔含 Biz Give 原始生意額**。
-- 加密檔就算被人攞到,冇密碼解唔到。密碼強度 = 私隱關鍵。
-- 未加密嘅 `exportJSON`(`bni-bingo-*.json`)含姓名+生意額,已 `.gitignore`,**絕不上傳**。
+- 會員版只含分數/燈號/貼士/recap,**唔含 Biz Give 原始生意額**。
+- 想加保護就填密碼(加密)。免密碼版任何攞到個檔嘅人都睇到全會,自己衡量。
+- `member.html` = 生成用嘅範本(LT 工具會 fetch 佢);`bni-bingo-*.json` / xlsx 已 `.gitignore`,絕不上傳。
+
+> 註:如果將來想要「固定網址、會員自己上網登入」,`member.html` 已支援放一個加密 `member-data.json` 落 Pages 嘅做法(見 git 版本歷史),不過自含檔案分享對非技術 LT 最易用。
 
 ## 更新記錄
 

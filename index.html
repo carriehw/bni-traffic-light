@@ -144,18 +144,11 @@ svg text{font-family:inherit}
     </div>
     <div class="card" id="parseMsg" style="display:none"></div>
     <div class="card" id="exportCard" style="display:none">
-      <div style="font-weight:800;margin-bottom:4px">匯出資料</div>
-      <div class="hint">俾 Phase 2 會員自助版用。匯出係去識別化選項:可淨係含分數/燈號/貼士,唔含生意額。</div>
-      <div class="copybar" style="margin-top:8px">
-        <button class="btn" id="exportJsonBtn">⬇️ 匯出全會 JSON</button>
-        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="exportNoBiz" style="width:auto" checked>唔含生意額(Biz Give 原始數)</label>
-      </div>
-      <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
-      <div style="font-weight:800;margin-bottom:4px">產生會員自助版(加密)</div>
-      <div class="hint">設一個分會共用密碼,加密全會資料 → 下載 <b>member-data.json</b>,放上 GitHub Pages(同 member.html 一齊)。會員入密碼揀名就睇到自己。密碼冇儲存喺檔案,解唔到。</div>
+      <div style="font-weight:800;margin-bottom:4px">生成會員版(可分享)</div>
+      <div class="hint">生成一個自含嘅會員版 HTML(數據已內嵌,唔含生意額)。直接 send 俾會員或放上網,會員開檔揀自己名就睇到燈號/雷達圖/升燈貼士。密碼選填。</div>
       <div class="row" style="margin-top:8px">
-        <div><label class="f">分會共用密碼</label><input id="memberPw" type="text" placeholder="例:bingo2026" value=""></div>
-        <div style="display:flex;align-items:flex-end"><button class="btn" id="genMemberBtn">🔐 產生 member-data.json</button></div>
+        <div><label class="f">密碼保護(選填,留空 = 免密碼)</label><input id="memberPw" type="text" placeholder="留空即免密碼"></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn" id="genMemberBtn">⬇️ 生成會員版 HTML</button></div>
       </div>
       <div id="genMsg" class="hint" style="margin-top:6px"></div>
     </div>
@@ -692,33 +685,9 @@ function downloadCard(name){
 }
 window.downloadCard=downloadCard;
 
-/* ---- 匯出 JSON(Phase 2 會員自助版數據源) ---- */
-function exportJSON(){
-  if(!STATE.cur){alert('請先上傳月報。');return;}
-  const s=settings();const noBiz=document.getElementById('exportNoBiz').checked;
-  const prevMap={};if(STATE.prev)STATE.prev.rows.forEach(r=>prevMap[r.name]=r);
-  const out={
-    chapter:s.chapter, period:STATE.cur.period, exportedAt:nowStr(),
-    goalPct:s.goal, greenLine:s.greenLine, asOf:s.asOf, forecastMonth:s.month, coach:s.coach,
-    members:STATE.cur.rows.map(r=>{
-      const p=prevMap[r.name];
-      const m={name:r.name, total:r.total, light:r.light, weeks:r.weeks,
-        scores:r.sc, prevTotal:p?p.total:null, prevLight:p?p.light:null,
-        tips:improvementTips(r,s.greenLine), recap:genRecapText(r)};
-      if(!noBiz)m.raw=r.raw; else {m.raw={...r.raw};delete m.raw.Biz;}
-      return m;
-    })
-  };
-  const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download=`bni-bingo-${(STATE.cur.period||'').replace(/[^0-9]/g,'').slice(0,6)||'data'}.json`;
-  a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
-}
-document.getElementById('exportJsonBtn').onclick=exportJSON;
-
-/* ---- 加密產生會員版數據(WebCrypto AES-GCM,同 member.html 一致) ---- */
+/* ---- 生成會員版(自含 HTML,數據內嵌,密碼選填) ---- */
 function buildMemberData(){
-  const s=settings();const noBiz=true; // 會員版一律唔含生意額原始數
+  const s=settings(); // 會員版一律唔含生意額原始數
   const prevMap={};if(STATE.prev)STATE.prev.rows.forEach(r=>prevMap[r.name]=r);
   return {chapter:s.chapter,period:STATE.cur.period,greenLine:s.greenLine,goalPct:s.goal,
     members:STATE.cur.rows.map(r=>{const p=prevMap[r.name];
@@ -731,14 +700,25 @@ async function deriveKeyEnc(pw,salt){const km=await crypto.subtle.importKey('raw
 async function genMemberData(){
   if(!STATE.cur){alert('請先上傳月報。');return;}
   const pw=document.getElementById('memberPw').value.trim();
-  if(pw.length<4){alert('請設一個至少 4 位嘅分會密碼。');return;}
-  const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
-  const key=await deriveKeyEnc(pw,salt);
-  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(JSON.stringify(buildMemberData())));
-  const pkg={v:1,s:b64e(salt),iv:b64e(iv),ct:b64e(ct)};
-  const blob=new Blob([JSON.stringify(pkg)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='member-data.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
-  document.getElementById('genMsg').innerHTML=`✅ 已產生 <b>member-data.json</b>(加密,${STATE.cur.rows.length} 位會員)。將佢同 member.html 一齊放上 GitHub Pages,再將密碼 <b>${esc(pw)}</b> 派俾會員。`;
+  const data=buildMemberData();
+  let embedded;
+  if(pw){
+    if(pw.length<4){alert('密碼太短(至少 4 位)。想免密碼就留空。');return;}
+    const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+    const key=await deriveKeyEnc(pw,salt);
+    const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(JSON.stringify(data)));
+    embedded={v:1,s:b64e(salt),iv:b64e(iv),ct:b64e(ct)};
+  }else{embedded=data;}
+  let tpl;
+  try{tpl=await (await fetch('member.html',{cache:'no-store'})).text();}
+  catch(e){document.getElementById('genMsg').innerHTML='⚠️ 攞唔到 member.html 範本。請用<b>網址版</b>工具生成(https://carriehw.github.io/bni-traffic-light/),或者確保 member.html 同呢個工具喺同一資料夾。';return;}
+  const inject=`<script>window.__EMBEDDED__=${JSON.stringify(embedded)};<\/script>`;
+  const html=tpl.replace('</head>',inject+'</head>');
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  const pd=(STATE.cur.period||'').replace(/[^0-9]/g,'').slice(0,6)||'';
+  a.download=`BINGO紅黃綠燈-${pd}.html`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  document.getElementById('genMsg').innerHTML=`✅ 已生成 <b>BINGO紅黃綠燈-${pd}.html</b>(${STATE.cur.rows.length} 位會員,${pw?'有密碼保護':'免密碼'})。直接 send 俾會員或放上網就用得,會員開檔揀名睇自己。`;
 }
 document.getElementById('genMemberBtn').onclick=genMemberData;
 
