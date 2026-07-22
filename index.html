@@ -143,6 +143,14 @@ svg text{font-family:inherit}
       </div>
     </div>
     <div class="card" id="parseMsg" style="display:none"></div>
+    <div class="card" id="exportCard" style="display:none">
+      <div style="font-weight:800;margin-bottom:4px">匯出資料</div>
+      <div class="hint">俾 Phase 2 會員自助版用。匯出係去識別化選項:可淨係含分數/燈號/貼士,唔含生意額。</div>
+      <div class="copybar" style="margin-top:8px">
+        <button class="btn" id="exportJsonBtn">⬇️ 匯出全會 JSON</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="exportNoBiz" style="width:auto" checked>唔含生意額(Biz Give 原始數)</label>
+      </div>
+    </div>
   </section>
 
   <!-- DASHBOARD -->
@@ -558,6 +566,7 @@ function afterLoad(){
   if(!STATE.cur)return;
   // 設定改動時可重算
   document.getElementById('parseMsg').style.display='block';
+  document.getElementById('exportCard').style.display='block';
   document.getElementById('parseMsg').innerHTML=`<div class="flag ok">✓ 已載入當月 ${STATE.cur.rows.length} 位會員${STATE.prev?(' + 上月 '+STATE.prev.rows.length+' 位'):''}。可去【全會】【覆核】【會員】【批量Recap】。</div>`;
   renderDash();runCheck();buildMemberSearch();
 }
@@ -674,6 +683,30 @@ function downloadCard(name){
   img.src=url;
 }
 window.downloadCard=downloadCard;
+
+/* ---- 匯出 JSON(Phase 2 會員自助版數據源) ---- */
+function exportJSON(){
+  if(!STATE.cur){alert('請先上傳月報。');return;}
+  const s=settings();const noBiz=document.getElementById('exportNoBiz').checked;
+  const prevMap={};if(STATE.prev)STATE.prev.rows.forEach(r=>prevMap[r.name]=r);
+  const out={
+    chapter:s.chapter, period:STATE.cur.period, exportedAt:nowStr(),
+    goalPct:s.goal, greenLine:s.greenLine, asOf:s.asOf, forecastMonth:s.month, coach:s.coach,
+    members:STATE.cur.rows.map(r=>{
+      const p=prevMap[r.name];
+      const m={name:r.name, total:r.total, light:r.light, weeks:r.weeks,
+        scores:r.sc, prevTotal:p?p.total:null, prevLight:p?p.light:null,
+        tips:improvementTips(r,s.greenLine), recap:genRecapText(r)};
+      if(!noBiz)m.raw=r.raw; else {m.raw={...r.raw};delete m.raw.Biz;}
+      return m;
+    })
+  };
+  const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`bni-bingo-${(STATE.cur.period||'').replace(/[^0-9]/g,'').slice(0,6)||'data'}.json`;
+  a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+}
+document.getElementById('exportJsonBtn').onclick=exportJSON;
 
 /* ---- 選用:如資料夾有 logo.png,header 自動用真 logo ---- */
 let LOGO_DATAURI='';
