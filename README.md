@@ -1,46 +1,38 @@
-# 🚦 BNI 紅黃綠燈計算平台 · Bingo
+# 🚦 BNI BINGO 紅黃綠燈計算平台
 
-每月處理 BNI Member Traffic Light 報表:**覆核 → 分析 → 生成升燈 recap + 會員圖卡**,一 run 搞掂。
+手機及桌面均可使用的會員表現平台。會員以共用密碼登入，搜尋姓名後查看最新燈號、分項得分、每月升跌、75 分安全線建議及可複製 WhatsApp recap。LT 以管理員密碼登入，上傳及發布最新 Excel。
 
-## 🔗 網址(可分享俾其他 LT)
+## 正式網址
 
-**LT 工具**:https://carriehw.github.io/bni-traffic-light/
+- Vercel：<https://bni-traffic-light-eta.vercel.app/>
+- GitHub Pages：<https://carriehw.github.io/bni-traffic-light/>
 
-> 開個網址就用得,唔使安裝。上傳月報 Excel,全程喺你部機/瀏覽器處理,**數據唔會上傳去任何伺服器**。
+## 每月工作流程
 
-## 🔒 私隱
+1. LT 收到最新 Member Traffic Light Excel。
+2. 在「LT 後台」選擇檔案。
+3. 平台讀取 Traffic Light Report、重新核對七個分項總和及會員數量。
+4. 平台以最新已發布月份作比較，顯示本月／上月分數與燈號升跌。
+5. LT 查看預覽後按「正式發布」。
+6. 原始 Excel 儲存到 Supabase 私密 Storage；結構化分數保留於歷史資料庫。
+7. 會員重新整理頁面即可查看新月份，並可一鍵複製個人化 recap。
 
-**全程喺你部機／瀏覽器本機運算,Excel 唔會上傳去任何伺服器。** 呢個 repo 只放**工具程式碼**,唔含任何會員數據(`samples/`、`*.xlsx` 已被 `.gitignore` 排除)。
+## 權限與資料安全
 
-## 用法
+- 會員：共用密碼，可查看全會已發布成績。
+- LT：另一組管理員密碼，可上傳及發布報告。
+- 瀏覽器只保存限時 session token；密碼及 Supabase service role key 不會寫入 GitHub。
+- 所有公開資料表已啟用 RLS，客戶端不能直接讀寫資料庫。
+- Excel bucket 為 private，檔案不會出現在公開 repository。
 
-**方法 A(線上)**:開 GitHub Pages 網址 → 拖入當月 Excel。數據仍然只喺你瀏覽器本機處理。
+## 計分與燈號
 
-**方法 B(單一檔案,離線)**:下載 [`bni-traffic-light-standalone.html`](bni-traffic-light-standalone.html) 一個檔案,double-click 就用,可離線、可 send 俾其他 LT。
+七個分項滿分 100：缺席 15、遲到 10、引薦 20、嘉賓 20、1-2-1 10、培訓 10、生意 15。燈號為綠 ≥70、黃 50–69、紅 30–49、黑 <30；平台以 75 分作安全建議目標。
 
-## 功能
+詳細公式見 [SCORING.md](SCORING.md)，每月 SOP 見 [WORKFLOW.md](WORKFLOW.md)。
 
-- **全會 Dashboard** — 綠/黃/紅/黑分佈、達標進度、排名
-- **覆核** — 由原始數據重算對比官方分(捉入機/公式錯)、跨月對比、**簽核記錄批核人+時間**
-- **會員** — 燈號、雷達圖、**升到綠燈最平路線**、一鍵 copy recap、**下載會員圖卡 PNG**(連上月對比箭嘴)
-- **批量 Recap** — 一次過生成全部會員 recap + 圖卡
+## 技術架構
 
-## 會員版(自含檔案分享)
+靜態 HTML/JavaScript 前台 + Supabase Postgres、Private Storage 及 Edge Function。vendor_xlsx.full.min.js 只在 LT 瀏覽器內解析 Excel；API 會再次驗證分項總和才發布。
 
-LT 工具【① 上傳】頁底「生成會員版(可分享)」→ 下載一個**自含 HTML**(數據內嵌,唔含生意額,密碼選填)→ send 俾會員。會員開檔揀自己名就睇到燈號/雷達圖/升燈貼士。唔使每月 git、唔使後端。步驟見 [WORKFLOW.md](WORKFLOW.md)。
-
-## 計分邏輯
-
-見 [SCORING.md](SCORING.md)(已用真實月報核對 100% 準確)。五大元素滿分 100,燈號:綠 ≥70 / 黃 50–70 / 紅 30–50 / 黑 <30。
-
-## 檔案
-
-| 檔 | 用途 |
-|---|---|
-| `index.html` | 主工具(引用 `vendor_xlsx.full.min.js`) |
-| `bni-traffic-light-standalone.html` | 單一檔案版(SheetJS 已內嵌,離線用) |
-| `build-standalone.py` | 由 index.html 產生單一檔案版 |
-| `SCORING.md` / `WORKFLOW.md` | 計分邏輯 / 每月 SOP |
-
----
-免責:非投資／非官方工具,計分依 BNI HK 公開規則,僅供分會內部參考。
+> 本工具供 BINGO Chapter 內部使用，並非 BNI 官方產品。
