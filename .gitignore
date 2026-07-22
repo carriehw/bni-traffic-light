@@ -1,0 +1,17 @@
+# 🔒 絕不上傳任何會員數據
+samples/
+data/
+*.xlsx
+*.xls
+*.csv
+
+# 選用資產 / 本機檔
+logo.png
+*.mov
+*.pdf
+
+# 雜項
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
