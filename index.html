@@ -150,6 +150,14 @@ svg text{font-family:inherit}
         <button class="btn" id="exportJsonBtn">⬇️ 匯出全會 JSON</button>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="exportNoBiz" style="width:auto" checked>唔含生意額(Biz Give 原始數)</label>
       </div>
+      <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+      <div style="font-weight:800;margin-bottom:4px">產生會員自助版(加密)</div>
+      <div class="hint">設一個分會共用密碼,加密全會資料 → 下載 <b>member-data.json</b>,放上 GitHub Pages(同 member.html 一齊)。會員入密碼揀名就睇到自己。密碼冇儲存喺檔案,解唔到。</div>
+      <div class="row" style="margin-top:8px">
+        <div><label class="f">分會共用密碼</label><input id="memberPw" type="text" placeholder="例:bingo2026" value=""></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn" id="genMemberBtn">🔐 產生 member-data.json</button></div>
+      </div>
+      <div id="genMsg" class="hint" style="margin-top:6px"></div>
     </div>
   </section>
 
@@ -707,6 +715,32 @@ function exportJSON(){
   a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
 }
 document.getElementById('exportJsonBtn').onclick=exportJSON;
+
+/* ---- 加密產生會員版數據(WebCrypto AES-GCM,同 member.html 一致) ---- */
+function buildMemberData(){
+  const s=settings();const noBiz=true; // 會員版一律唔含生意額原始數
+  const prevMap={};if(STATE.prev)STATE.prev.rows.forEach(r=>prevMap[r.name]=r);
+  return {chapter:s.chapter,period:STATE.cur.period,greenLine:s.greenLine,goalPct:s.goal,
+    members:STATE.cur.rows.map(r=>{const p=prevMap[r.name];
+      return {name:r.name,total:r.total,light:r.light,weeks:r.weeks,scores:r.sc,
+        prevTotal:p?p.total:null,tips:improvementTips(r,s.greenLine),recap:genRecapText(r)};})};
+}
+function b64e(buf){const b=new Uint8Array(buf);let s='';const CH=0x8000;for(let i=0;i<b.length;i+=CH)s+=String.fromCharCode.apply(null,b.subarray(i,i+CH));return btoa(s);}
+async function deriveKeyEnc(pw,salt){const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:120000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt']);}
+async function genMemberData(){
+  if(!STATE.cur){alert('請先上傳月報。');return;}
+  const pw=document.getElementById('memberPw').value.trim();
+  if(pw.length<4){alert('請設一個至少 4 位嘅分會密碼。');return;}
+  const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+  const key=await deriveKeyEnc(pw,salt);
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(JSON.stringify(buildMemberData())));
+  const pkg={v:1,s:b64e(salt),iv:b64e(iv),ct:b64e(ct)};
+  const blob=new Blob([JSON.stringify(pkg)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='member-data.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  document.getElementById('genMsg').innerHTML=`✅ 已產生 <b>member-data.json</b>(加密,${STATE.cur.rows.length} 位會員)。將佢同 member.html 一齊放上 GitHub Pages,再將密碼 <b>${esc(pw)}</b> 派俾會員。`;
+}
+document.getElementById('genMemberBtn').onclick=genMemberData;
 
 /* ---- 選用:如資料夾有 logo.png,header 自動用真 logo ---- */
 let LOGO_DATAURI='';

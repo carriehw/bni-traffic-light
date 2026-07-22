@@ -70,11 +70,23 @@ bni-traffic-light/
 - as-of 日期、預測月份、綠燈專員/聯絡人名(用喺 recap)
 - 綠燈分數線(預設 70,一般唔使改)
 
-## 5. Phase 2(未做)— 會員自助版
+## 5. Phase 2 — 會員自助登入版(已建立)
 
-- 方案:Google Apps Script Web App + Google Sheet(私隱式,Google 登入,每人只睇自己)。
-- Phase 1 會匯出乾淨 JSON(去識別/加密可選)俾 Phase 2 接。
-- 待 Phase 1 穩定後開展。
+**登入方式**:共用密碼 + 自己揀名(用戶選定)。
+**做法**:加密靜態頁,唔使 Google、唔使後端,留喺 GitHub Pages。
+- `member.html` — 會員入口頁(靜態)。
+- `member-data.json` — 全會資料,經 **WebCrypto AES-256-GCM** 用分會共用密碼加密。放上 Pages 都解唔到(冇密碼)。
+
+**每月部署流程(LT)**:
+1. 用 `index.html`(admin 工具)上傳月報 → 去【① 上傳】頁底「產生會員自助版」。
+2. 輸入**分會共用密碼**(⚠️ 要強,唔好用易估嘅)→ 撳「🔐 產生 member-data.json」→ 下載。
+3. 將 `member-data.json` 放入 repo(覆蓋舊嗰個)→ `git add member-data.json && git commit && git push`。
+4. 會員開 `carriehw.github.io/bni-traffic-light/member.html` → 入密碼 → 揀自己名 → 睇燈號/雷達圖/升燈貼士/完整訊息。
+
+**私隱**:
+- `member-data.json` 只含分數/燈號/貼士/recap,**唔含 Biz Give 原始生意額**。
+- 加密檔就算被人攞到,冇密碼解唔到。密碼強度 = 私隱關鍵。
+- 未加密嘅 `exportJSON`(`bni-bingo-*.json`)含姓名+生意額,已 `.gitignore`,**絕不上傳**。
 
 ## 更新記錄
 

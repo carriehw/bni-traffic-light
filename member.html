@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BNI BINGO · 我的紅黃綠燈</title>
+<style>
+:root{--bni-red:#D6001C;--bni-grey:#58595B;--green:#2e9e4f;--green-bg:#e7f6ec;--yellow:#e0b400;--yellow-bg:#fff8e0;
+--red:#d23b3b;--red-bg:#fdeaea;--black:#555;--ink:#1e1a1c;--mut:#7c7480;--line:#e7e2e6;--bg:#f7f4f6;--card:#fff}
+*{box-sizing:border-box}
+body{margin:0;font-family:"PingFang HK","Microsoft JhengHei","Segoe UI",system-ui,sans-serif;color:var(--ink);background:var(--bg)}
+header{background:#fff;border-bottom:3px solid var(--bni-red);padding:12px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.logo{font-family:"Arial Black",Arial,sans-serif;font-weight:900;line-height:.85;letter-spacing:-1px}
+.logo .bni{color:var(--bni-red);font-size:28px}.logo .reg{color:var(--bni-red);font-size:9px;vertical-align:super}
+.logo .bingo{display:block;color:var(--bni-grey);font-size:14px;letter-spacing:5px;margin-top:2px}
+header .t{font-size:15px;font-weight:800}header .s{font-size:12px;color:var(--mut)}
+.wrap{max-width:640px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+input,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:15px;font-family:inherit}
+button.btn{background:var(--bni-red);color:#fff;border:none;border-radius:10px;padding:11px 16px;font-weight:800;cursor:pointer;font-size:15px;width:100%}
+button.ghost{background:#fff;color:var(--bni-red);border:1px solid var(--bni-red);width:auto;padding:8px 12px}
+label.f{display:block;font-size:12.5px;color:var(--mut);margin:6px 0 4px}
+.pill{display:inline-block;padding:2px 10px;border-radius:20px;font-size:13px;font-weight:800;color:#fff}
+.pill.green{background:var(--green)}.pill.yellow{background:var(--yellow);color:#5a4a00}.pill.red{background:var(--red)}.pill.black{background:var(--black)}
+.list{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:8px}
+.list div{padding:11px 12px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.list div:active{background:#faf6f8}
+.brk{display:grid;grid-template-columns:1fr auto;gap:8px 10px;font-size:14px;align-items:center;margin-top:4px}
+.mini{height:9px;border-radius:5px;background:#eee;overflow:hidden;grid-column:1/2}
+.mini>span{display:block;height:100%}
+.recap{white-space:pre-wrap;font-size:13.5px;line-height:1.65;background:#fbf9fc;border:1px solid var(--line);border-radius:10px;padding:12px}
+.hide{display:none}.err{color:var(--red);font-size:13px;margin-top:8px}.mut{color:var(--mut);font-size:12.5px}
+.up{color:var(--green);font-weight:700}.down{color:var(--red);font-weight:700}
+.big{font-size:26px;font-weight:800}
+svg text{font-family:inherit}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><span class="bni">BNI</span><span class="reg">®</span><span class="bingo">BINGO</span></div>
+  <div><div class="t">我的紅黃綠燈燈號</div><div class="s" id="periodLine">會員自助查詢</div></div>
+</header>
+<div class="wrap">
+  <!-- 密碼 -->
+  <div class="card" id="gate">
+    <div style="font-weight:800;margin-bottom:6px">🔒 請輸入分會密碼</div>
+    <div class="mut">密碼由綠燈專員提供。資料經加密,冇密碼解唔到。</div>
+    <label class="f">分會密碼</label>
+    <input id="pw" type="password" placeholder="輸入密碼" autocomplete="off">
+    <div style="height:10px"></div>
+    <button class="btn" id="enterBtn">進入</button>
+    <div class="err hide" id="pwErr">密碼錯誤,或者資料檔未載入。</div>
+  </div>
+  <!-- 揀名 -->
+  <div class="card hide" id="picker">
+    <div style="font-weight:800;margin-bottom:6px">請揀你的名</div>
+    <input id="search" placeholder="🔍 搵你個名…">
+    <div class="list" id="nameList"></div>
+  </div>
+  <!-- 詳情 -->
+  <div id="detail"></div>
+</div>
+
+<script>
+/* 會員數據會由 member-data.json 載入(加密) */
+const MAX={T:10,A:15,L:10,K:10,G:20,Biz:15,V:20};
+const LIGHT_ZH={green:'綠燈',yellow:'黃燈',red:'紅燈',black:'黑燈'};
+let DATA=null, PKG=null;
+
+/* ---- WebCrypto(同 admin 工具一致)---- */
+function b64(buf){const b=new Uint8Array(buf);let s='';const CH=0x8000;for(let i=0;i<b.length;i+=CH)s+=String.fromCharCode.apply(null,b.subarray(i,i+CH));return btoa(s);}
+function ub64(s){return Uint8Array.from(atob(s),c=>c.charCodeAt(0));}
+async function deriveKey(pw,salt){const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:120000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['decrypt']);}
+async function decryptJSON(pkg,pw){const key=await deriveKey(pw,ub64(pkg.s));
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:ub64(pkg.iv)},key,ub64(pkg.ct));return JSON.parse(new TextDecoder().decode(pt));}
+
+async function loadPkg(){
+  try{const r=await fetch('member-data.json',{cache:'no-store'});if(r.ok)PKG=await r.json();}catch(e){}
+}
+document.getElementById('enterBtn').onclick=async()=>{
+  const pw=document.getElementById('pw').value;
+  if(!PKG)await loadPkg();
+  if(!PKG){document.getElementById('pwErr').textContent='搵唔到資料檔 member-data.json。';document.getElementById('pwErr').classList.remove('hide');return;}
+  try{
+    DATA=await decryptJSON(PKG,pw);
+    document.getElementById('gate').classList.add('hide');
+    document.getElementById('picker').classList.remove('hide');
+    document.getElementById('periodLine').textContent=(DATA.chapter||'BINGO')+' · '+(DATA.period||'');
+    renderList('');
+  }catch(e){document.getElementById('pwErr').classList.remove('hide');}
+};
+document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('enterBtn').click();});
+
+function renderList(q){
+  const list=document.getElementById('nameList');
+  const rows=DATA.members.filter(m=>m.name.toLowerCase().includes(q.toLowerCase()));
+  list.innerHTML=rows.map(m=>`<div data-n="${esc(m.name)}"><span>${esc(m.name)}</span><span class="pill ${m.light}">${LIGHT_ZH[m.light]} ${m.total}</span></div>`).join('');
+  list.querySelectorAll('div').forEach(d=>d.onclick=()=>{document.getElementById('search').value=d.dataset.n;renderMember(d.dataset.n);});
+}
+document.getElementById('search').oninput=e=>renderList(e.target.value);
+
+function radar(sc){
+  const axes=[['培訓','T'],['缺席','A'],['準時','L'],['1-2-1','K'],['引薦','G'],['Biz','Biz'],['嘉賓','V']];
+  const cx=140,cy=125,R=92,N=axes.length;
+  const pt=(i,f)=>{const a=-Math.PI/2+i*2*Math.PI/N;return [cx+Math.cos(a)*R*f,cy+Math.sin(a)*R*f];};
+  let g='';for(let k=1;k<=4;k++){g+=`<polygon points="${axes.map((a,i)=>pt(i,k/4).join(',')).join(' ')}" fill="none" stroke="#eee"/>`;}
+  let sp='',lb='';axes.forEach((a,i)=>{const e=pt(i,1);sp+=`<line x1="${cx}" y1="${cy}" x2="${e[0]}" y2="${e[1]}" stroke="#eee"/>`;
+    const p=pt(i,1.17);lb+=`<text x="${p[0]}" y="${p[1]+4}" font-size="11" fill="#7c7480" text-anchor="middle">${a[0]}</text>`;});
+  const poly=axes.map((a,i)=>pt(i,sc[a[1]]/MAX[a[1]]).join(',')).join(' ');
+  return `<svg viewBox="0 0 280 250" width="100%" style="max-width:340px;display:block;margin:6px auto">${g}${sp}<polygon points="${poly}" fill="rgba(46,158,79,.28)" stroke="#2e9e4f" stroke-width="2.5"/>${lb}</svg>`;
+}
+function renderMember(name){
+  const m=DATA.members.find(x=>x.name===name);if(!m)return;
+  const need=Math.max(0,(DATA.greenLine||70)-m.total);
+  const items=[['培訓 Training','T'],['缺席 Absence','A'],['準時 On-time','L'],['1-2-1','K'],['引薦 Referral','G'],['Biz Give','Biz'],['嘉賓 Visitor','V']];
+  const brk=items.map(([lb,k])=>{const pct=Math.round(m.scores[k]/MAX[k]*100);const col=pct>=100?'var(--green)':pct>=50?'var(--yellow)':'var(--red)';
+    return `<div class="mini"><span style="width:${pct}%;background:${col}"></span></div><div style="font-weight:800">${m.scores[k]}/${MAX[k]}</div><div style="grid-column:1/3;font-size:12.5px;color:#7c7480;margin-top:-4px">${lb}</div>`;}).join('');
+  const chg=m.prevTotal!=null?` <span class="${m.total-m.prevTotal>=0?'up':'down'}" style="font-size:14px">(上月 ${m.prevTotal} ${m.total-m.prevTotal>=0?'▲+':'▼'}${Math.abs(m.total-m.prevTotal)})</span>`:'';
+  document.getElementById('detail').innerHTML=`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div style="font-size:19px;font-weight:800">${esc(m.name)} <span class="pill ${m.light}">${LIGHT_ZH[m.light]}</span></div>
+      <div class="big">${m.total}<span class="mut" style="font-size:13px">/100</span>${chg}</div>
+    </div>
+    <div class="mut">週數 ${m.weeks} · ${m.light==='green'?'已達綠燈 🎉 請繼續保持':'距離綠燈仲差 '+need+' 分'}</div>
+    ${radar(m.scores)}
+    <div style="font-weight:800;margin:8px 0 4px">分項評分</div>
+    <div class="brk">${brk}</div>
+    <div style="font-weight:800;margin:16px 0 6px">${m.light==='green'?'保持貼士':'升燈貼士(最平路線)'}</div>
+    ${(m.tips&&m.tips.length)?'<ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.75">'+m.tips.map(t=>`<li>${esc(t)}</li>`).join('')+'</ul>':'<div class="mut">各項已滿分,請繼續保持!</div>'}
+    <div style="font-weight:800;margin:16px 0 6px">完整訊息</div>
+    <div class="recap" id="recapBox">${esc(m.recap||'')}</div>
+    <div style="margin-top:8px"><button class="ghost" onclick="copyRecap()">📋 複製訊息</button></div>
+  </div>`;
+  document.getElementById('detail').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function copyRecap(){const t=document.getElementById('recapBox').innerText;navigator.clipboard.writeText(t).then(()=>{const b=event.target;const o=b.textContent;b.textContent='✓ 已複製';setTimeout(()=>b.textContent=o,1200);});}
+function esc(s){return(''+s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+loadPkg();
+</script>
+</body>
+</html>

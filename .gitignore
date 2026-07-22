@@ -1,9 +1,14 @@
-# 🔒 絕不上傳任何會員數據
+# 🔒 絕不上傳任何會員數據(未加密)
 samples/
 data/
 *.xlsx
 *.xls
 *.csv
+bni-bingo-*.json      # exportJSON 匯出(未加密,含姓名/生意額)— 絕不上傳
+
+# 注意:member-data.json 係「加密」數據(AES-256),設計上要放上 Pages 俾會員解密。
+# 由 LT 用自己嘅【強密碼】產生後自行 commit 部署。此 repo 唔預先放真數據。
+# ⚠️ 密碼一定要強(唔好用 bingo2026 咁易估),因為加密檔係公開喺 Pages。
 
 # 選用資產 / 本機檔
 logo.png
