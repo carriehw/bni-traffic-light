@@ -659,8 +659,10 @@ function memberCardSVG(r){
   const lt=r.light==='yellow'?'#5a4a00':'#fff';
   // header
   P.push(`<rect x="0" y="0" width="${W}" height="96" fill="#fff"/><rect x="0" y="93" width="${W}" height="3" fill="#D6001C"/>`);
-  P.push(`<text x="32" y="54" font-size="34" font-weight="900" fill="#D6001C" font-family="Arial Black,Arial">BNI</text><text x="120" y="40" font-size="12" fill="#D6001C">®</text>`);
-  P.push(`<text x="33" y="80" font-size="16" letter-spacing="4" font-weight="800" fill="#58595B">BINGO</text>`);
+  if(!LOGO_DATAURI){ // 有真 logo 就留空,喺 canvas 疊上去(免 taint);冇就用文字 logo
+    P.push(`<text x="32" y="54" font-size="34" font-weight="900" fill="#D6001C" font-family="Arial Black,Arial">BNI</text><text x="120" y="40" font-size="12" fill="#D6001C">®</text>`);
+    P.push(`<text x="33" y="80" font-size="16" letter-spacing="4" font-weight="800" fill="#58595B">BINGO</text>`);
+  }
   P.push(`<text x="${W-32}" y="48" text-anchor="end" font-size="16" font-weight="800" fill="#1e1a1c">紅黃綠燈燈號</text>`);
   P.push(`<text x="${W-32}" y="72" text-anchor="end" font-size="12.5" fill="#7c7480">${esc(period)} · ${esc(s.month)}預測</text>`);
   // name + badge
@@ -702,9 +704,13 @@ function downloadCard(name){
     const sc=2,c=document.createElement('canvas');c.width=img.width*sc;c.height=img.height*sc;
     const ctx=c.getContext('2d');ctx.scale(sc,sc);ctx.fillStyle='#fff';ctx.fillRect(0,0,img.width,img.height);ctx.drawImage(img,0,0);
     URL.revokeObjectURL(url);
-    c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);
+    const save=()=>c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);
       const pd=(STATE.cur.period||'').replace(/[^0-9]/g,'').slice(0,6)||'card';
       a.download=`${name}-${pd}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);},'image/png');
+    if(LOGO_DATAURI){ // 真 logo 疊落 canvas 左上角(data URI 免 taint)
+      const lg=new Image();lg.onload=()=>{const h=52,w=lg.width/lg.height*h;ctx.drawImage(lg,32,18,w,h);save();};
+      lg.onerror=save;lg.src=LOGO_DATAURI;
+    }else save();
   };
   img.onerror=()=>{URL.revokeObjectURL(url);alert('圖卡生成失敗。');};
   img.src=url;
@@ -738,7 +744,8 @@ async function genMemberData(){
   let tpl;
   try{tpl=await (await fetch('member.html',{cache:'no-store'})).text();}
   catch(e){document.getElementById('genMsg').innerHTML='⚠️ 攞唔到 member.html 範本。請用<b>網址版</b>工具生成(https://carriehw.github.io/bni-traffic-light/),或者確保 member.html 同呢個工具喺同一資料夾。';return;}
-  const inject=`<script>window.__EMBEDDED__=${JSON.stringify(embedded)};<\/script>`;
+  const logoLine=LOGO_DATAURI?`window.__LOGO__=${JSON.stringify(LOGO_DATAURI)};`:'';
+  const inject=`<script>window.__EMBEDDED__=${JSON.stringify(embedded)};${logoLine}<\/script>`;
   const html=tpl.replace('</head>',inject+'</head>');
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);

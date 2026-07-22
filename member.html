@@ -85,7 +85,13 @@ function showPicker(){
   document.getElementById('periodLine').textContent=(DATA.chapter||'BINGO')+' · '+(DATA.period||'');
   renderList('');
 }
+async function loadLogo(){ // 有真 logo(內嵌 __LOGO__ 或同資料夾 logo.png)就用
+  let d=window.__LOGO__;
+  if(!d){try{const r=await fetch('logo.png');if(r.ok){const b=await r.blob();d=await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(b);});}}catch(e){}}
+  if(d){const lg=document.querySelector('header .logo');if(lg)lg.innerHTML=`<img src="${d}" alt="BNI BINGO" style="height:40px;display:block">`;}
+}
 async function init(){
+  loadLogo();
   await loadPkg();
   if(PKG&&PKG.members){DATA=PKG;showPicker();}          // 免密碼(明文內嵌)
   // 否則保持密碼閘(加密數據)
