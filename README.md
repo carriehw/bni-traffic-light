@@ -2,6 +2,12 @@
 
 每月處理 BNI Member Traffic Light 報表:**覆核 → 分析 → 生成升燈 recap + 會員圖卡**,一 run 搞掂。
 
+## 🔗 網址(可分享俾其他 LT)
+
+**LT 工具**:https://carriehw.github.io/bni-traffic-light/
+
+> 開個網址就用得,唔使安裝。上傳月報 Excel,全程喺你部機/瀏覽器處理,**數據唔會上傳去任何伺服器**。
+
 ## 🔒 私隱
 
 **全程喺你部機／瀏覽器本機運算,Excel 唔會上傳去任何伺服器。** 呢個 repo 只放**工具程式碼**,唔含任何會員數據(`samples/`、`*.xlsx` 已被 `.gitignore` 排除)。
