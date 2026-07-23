@@ -18,17 +18,11 @@
       "migrations_dir": "migrations"
     }
   ],
-  "r2_buckets": [
-    {
-      "binding": "FILES"
-    }
-  ],
   "vars": {
     "CHAPTER_ID": "bingo",
     "CHAPTER_SLUG": "bingo",
     "CHAPTER_NAME": "BNI BINGO",
-    "SESSION_DAYS": "30",
-    "MAX_UPLOAD_MB": "15"
+    "SESSION_DAYS": "30"
   },
   "observability": {
     "enabled": true
