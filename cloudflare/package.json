@@ -15,8 +15,8 @@
     "make:import": "node scripts/import-json.mjs"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260722.0",
-    "typescript": "^5.9.2",
-    "wrangler": "^4.0.0"
+    "@cloudflare/workers-types": "latest",
+    "typescript": "latest",
+    "wrangler": "latest"
   }
 }
