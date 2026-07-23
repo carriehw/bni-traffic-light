@@ -17,8 +17,36 @@ function findTotal(keys){return keys.find(k=>{const s=head(k);return!/(重算|re
 function findLight(keys){return keys.find(k=>/(燈號|trafficlight|light)/i.test(String(k)))}
 function findScore(keys,terms){return keys.find(k=>{const raw=String(k),s=head(k);if(/重算|recalc/i.test(raw))return false;const term=terms.some(t=>s.includes(head(t)));const scoreSignal=/excel|得分|score/i.test(raw)||s.endsWith('分');return term&&scoreSignal})}
 function makeMap(keys){return{member_name:findMember(keys),total_score:findTotal(keys),light:findLight(keys),training_score:findScore(keys,['培訓','training']),absence_score:findScore(keys,['出席','attendance','absence']),lateness_score:findScore(keys,['準時','punctual','lateness']),one_to_one_score:findScore(keys,['1-2-1','121','一對一','one to one']),referral_score:findScore(keys,['引薦','referral']),biz_give_score:findScore(keys,['生意額','biz give','business']),visitor_score:findScore(keys,['嘉賓','visitor'])}}
-function sheetCandidate(wb,name){const sheet=wb.Sheets[name],rows=XLSX.utils.sheet_to_json(sheet,{defval:'',raw:false}),keys=rows.length?Object.keys(rows[0]):[],map=makeMap(keys),scoreKeys=['training_score','absence_score','lateness_score','one_to_one_score','referral_score','biz_give_score','visitor_score'],fitness=(map.member_name?5:0)+(map.total_score?5:0)+scoreKeys.filter(k=>map[k]).length;return{name,rows,keys,map,fitness}}
-function chooseSheet(wb){return wb.SheetNames.map(n=>sheetCandidate(wb,n)).sort((a,b)=>b.fitness-a.fitness||b.rows.length-a.rows.length)[0]}
+function mappedCandidate(name,rows){const keys=rows.length?Object.keys(rows[0]):[],map=makeMap(keys),scoreKeys=['training_score','absence_score','lateness_score','one_to_one_score','referral_score','biz_give_score','visitor_score'],fitness=(map.member_name?5:0)+(map.total_score?5:0)+scoreKeys.filter(k=>map[k]).length;return{name,rows,keys,map,fitness}}
+function officialTrafficCandidate(wb,name){
+  const sheet=wb.Sheets[name],grid=XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:false});
+  for(let headerIndex=0;headerIndex<Math.min(20,grid.length);headerIndex++){
+    const headers=(grid[headerIndex]||[]).map(head),weekIndex=headers.findIndex(x=>x==='week');
+    if(weekIndex<0)continue;
+    const expected=[['a'],['l'],['g'],['v'],['121'],['t'],['bizgive'],['totalpts']];
+    const indexes=expected.map((terms,offset)=>{const preferred=weekIndex+1+offset;if(terms.includes(headers[preferred]))return preferred;return headers.findIndex((x,i)=>i>weekIndex&&terms.includes(x))});
+    if(indexes.some(i=>i<0))continue;
+    const [absenceIndex,latenessIndex,referralIndex,visitorIndex,oneIndex,trainingIndex,bizIndex,totalIndex]=indexes;
+    const rows=[];
+    for(const source of grid.slice(headerIndex+1)){
+      const rank=Number(String(source[0]??'').replace(/,/g,'')),member=String(source[1]||source[2]||'').trim();
+      if(!Number.isFinite(rank)||!member||norm(member)==='perfect')continue;
+      rows.push({
+        '會員姓名':member,'Excel總分':source[totalIndex],'Excel培訓分':source[trainingIndex],
+        'Excel出席分':source[absenceIndex],'Excel準時分':source[latenessIndex],
+        'Excel 1-2-1分':source[oneIndex],'Excel引薦分':source[referralIndex],
+        'Excel生意額分':source[bizIndex],'Excel嘉賓分':source[visitorIndex],
+        P:source[3],A:source[4],L:source[5],M:source[6],S:source[7],G:source[8],
+        R:source[9],V:source[10],'1-2-1':source[11],T:source[12],
+        'Biz Give':source[13],Week:source[weekIndex]
+      });
+    }
+    if(rows.length)return{...mappedCandidate(name,rows),fitness:30,format:'official-traffic'};
+  }
+  return null;
+}
+function sheetCandidate(wb,name){const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{defval:'',raw:false});return mappedCandidate(name,rows)}
+function chooseSheet(wb){return wb.SheetNames.flatMap(n=>[officialTrafficCandidate(wb,n),sheetCandidate(wb,n)].filter(Boolean)).sort((a,b)=>b.fitness-a.fitness||b.rows.length-a.rows.length)[0]}
 function ensureUI(){const card=el('file')?.closest('.card');if(!card)return;let modeBox=el('publishMode');if(!modeBox){modeBox=document.createElement('div');modeBox.id='publishMode';modeBox.className='mode-box hide';el('checkResult').after(modeBox)}if(!el('monthConfirmV2')){const box=document.createElement('div');box.id='monthConfirmV2';box.className='mode-box hide';box.innerHTML='<label><strong>確認發布月份</strong><input id="reportMonthV2" class="field" type="month"><small class="muted">請核對月份後才發布，避免覆蓋錯誤月份。</small></label>';modeBox.before(box);box.querySelector('input').onchange=e=>setMonth(e.target.value)}let row=card.querySelector('.row');if(!row){row=document.createElement('div');row.className='row';card.appendChild(row)}const buttons=[['publishBtn','確認發布','btn'],['resetBtn','取消上載','btn light'],['downloadCsvBtn','下載核對 CSV','btn light']];for(const[id,text,cls]of buttons){if(!el(id)){const b=document.createElement('button');b.id=id;b.type='button';b.textContent=text;b.className=cls+' hide';row.appendChild(b)}}}
 function steps(active){document.querySelectorAll('.upload-steps span').forEach((x,i)=>x.classList.toggle('active',i<active))}
 function setMonth(value){const p=periodFromMonth(value);if(!report||!p)return;report.period_start=p.start;report.period_end=p.end;const pm=el('previewMonthV2');if(pm)pm.textContent=value;if(parseValid){el('publishBtn').classList.remove('hide');assess()}}
