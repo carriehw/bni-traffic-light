@@ -2,12 +2,6 @@ name: Deploy Cloudflare V3
 
 on:
   workflow_dispatch:
-    inputs:
-      run_data_import:
-        description: 'Import cloudflare/tmp/import-d1.sql after migrations'
-        type: boolean
-        required: true
-        default: false
 
 jobs:
   deploy:
@@ -44,14 +38,8 @@ jobs:
         env:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
 
-      - name: Import migrated data
-        if: ${{ inputs.run_data_import }}
-        run: |
-          test -f tmp/import-d1.sql || (echo 'tmp/import-d1.sql is missing' && exit 1)
-          npx wrangler d1 execute DB --remote --file=tmp/import-d1.sql
-
       - run: npx wrangler deploy
-      - name: Verify health endpoint
+      - name: Deployment handoff note
         run: |
-          URL=$(npx wrangler deployments status --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const j=JSON.parse(s);console.log(j.url||'')}catch{console.log('')}})")
-          echo "Deployment completed. Verify /health in the Cloudflare dashboard or deployment URL."
+          echo 'Cloudflare deployment completed.'
+          echo 'Run the private one-time D1 data import locally, then verify /health and the acceptance checklist.'
