@@ -8,6 +8,12 @@ on:
     paths:
       - 'cloudflare/**'
       - '.github/workflows/cloudflare-v3-deploy.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'cloudflare/**'
+      - '.github/workflows/cloudflare-v3-deploy.yml'
 
 permissions:
   contents: read
@@ -18,6 +24,9 @@ concurrency:
 
 jobs:
   deploy:
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.head_ref == 'cloudflare-v3' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     environment: cloudflare-production
     defaults:
