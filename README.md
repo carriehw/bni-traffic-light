@@ -1,38 +1,73 @@
-# 🚦 BNI BINGO 紅黃綠燈計算平台
+# 🚦 BNI BINGO 紅黃綠燈平台
 
-手機及桌面均可使用的會員表現平台。會員以共用密碼登入，搜尋姓名後查看最新燈號、分項得分、每月升跌、75 分安全線建議及可複製 WhatsApp recap。LT 以管理員密碼登入，上傳及發布最新 Excel。
+BNI BINGO 會員表現及綠燈行動平台。會員可查看最新燈號、Excel 正式分數、月份變化及個人化改善路徑；LT 可核對及發布每月 Traffic Excel、查看歷史紀錄，以及批量下載會員改善圖卡。
 
 ## 正式網址
 
-- Vercel：<https://bni-traffic-light-eta.vercel.app/>
-- GitHub Pages：<https://carriehw.github.io/bni-traffic-light/>
+- Production：<https://bni-traffic-light-eta.vercel.app/>
+- Repository：<https://github.com/carriehw/bni-traffic-light>
 
-## 每月工作流程
+> 團隊請只分享 Production 網址，不需要使用 `/v2.html` 或任何測試參數。
 
-1. LT 收到最新 Member Traffic Light Excel。
-2. 在「LT 後台」選擇檔案。
-3. 平台讀取 Traffic Light Report、重新核對七個分項總和及會員數量。
-4. 平台以最新已發布月份作比較，顯示本月／上月分數與燈號升跌。
-5. LT 查看預覽後按「正式發布」。
-6. 原始 Excel 儲存到 Supabase 私密 Storage；結構化分數保留於歷史資料庫。
-7. 會員重新整理頁面即可查看新月份，並可一鍵複製個人化 recap。
+## 核心原則
 
-## 權限與資料安全
+1. **Excel 是正式分數唯一來源。** 網站不自行覆蓋或重算官方分數。
+2. **綠燈門檻是 70 分。** 分會「75% 綠燈」是整體會員比例目標，不是個人 75 分目標。
+3. **Green Path Engine 只用原始數據計算行動建議。** 建議不會改寫 Excel 分數。
+4. **建議以會員表現為本。** 已滿分項目列作優勢；未滿分項目才會成為綠燈行動或備選方法。
+5. **出席及準時屬六個月滾動紀錄。** 平台只作提醒，不承諾「出席一次／準時一次即可加分」。
 
-- 會員：共用密碼，可查看全會已發布成績。
-- LT：另一組管理員密碼，可上傳及發布報告。
-- 瀏覽器只保存限時 session token；密碼及 Supabase service role key 不會寫入 GitHub。
-- 所有公開資料表已啟用 RLS，客戶端不能直接讀寫資料庫。
-- Excel bucket 為 private，檔案不會出現在公開 repository。
+## 主要功能
 
-## 計分與燈號
+### 會員平台
 
-七個分項滿分 100：缺席 15、遲到 10、引薦 20、嘉賓 20、1-2-1 10、培訓 10、生意 15。燈號為綠 ≥70、黃 50–69、紅 30–49、黑 <30；平台以 75 分作安全建議目標。
+- 共用會員密碼登入
+- 搜尋會員姓名
+- 查看最新月份燈號及七項 Excel 正式分數
+- 查看月份表現變化
+- 查看「綠燈行動建議／其他加分方法／已達滿分／需留意」
+- 下載個人 PNG 分享圖
 
-詳細公式見 [SCORING.md](SCORING.md)，每月 SOP 見 [WORKFLOW.md](WORKFLOW.md)。
+### LT 管理
+
+- 使用獨立 LT 密碼登入
+- 上載及核對 Traffic Excel
+- 鎖定讀取 Excel 正式分數欄及保留原始數據
+- 檢查缺少欄位、重複會員、月份及七項合計
+- 發布最新月份、加入歷史月份或取代相同月份
+- 查看月份紀錄及會員趨勢
+- 批量下載圖卡 ZIP
+- 預設只下載黃燈、紅燈及黑燈會員；亦可選全部、只黃燈、紅燈及黑燈
+
+## 文件索引
+
+- [TEAM_HANDOVER.md](TEAM_HANDOVER.md)：團隊使用及分享說明
+- [WORKFLOW.md](WORKFLOW.md)：每月 LT 操作及開發發布流程
+- [SCORING.md](SCORING.md)：正式計分及 Green Path Engine 邏輯
+- [QA_CHECKLIST.md](QA_CHECKLIST.md)：每月資料及版本發布驗收清單
+- [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md)：架構、權限、維護及技術債
+- [DECISION_LOG.md](DECISION_LOG.md)：重要產品及技術決策
+- [LESSONS_LEARNED.md](LESSONS_LEARNED.md)：今次項目復盤及下一個類似項目做法
+- [skills/data-driven-performance-platform/SKILL.md](skills/data-driven-performance-platform/SKILL.md)：供 AI／開發者重複使用的工作技能
 
 ## 技術架構
 
-靜態 HTML/JavaScript 前台 + Supabase Postgres、Private Storage 及 Edge Function。vendor_xlsx.full.min.js 只在 LT 瀏覽器內解析 Excel；API 會再次驗證分項總和才發布。
+- Frontend：靜態 HTML、CSS、JavaScript，部署於 Vercel
+- Excel 解析：瀏覽器內使用 SheetJS
+- API：Vercel same-origin proxy `/api/bni`
+- Backend：Supabase Edge Function
+- Database：Supabase Postgres
+- Original files：Supabase Private Storage
+- Authentication：會員及 LT 共用密碼換取限時 session token
 
-> 本工具供 BINGO Chapter 內部使用，並非 BNI 官方產品。
+## 資料安全
+
+- 密碼只保存雜湊，不寫入 GitHub 或文件。
+- Supabase service role key 不會暴露於瀏覽器。
+- Excel Storage 為 private。
+- LT 密碼只應私下交予獲授權管理員。
+- 本平台供 BINGO Chapter 內部使用，並非 BNI 官方產品。
+
+## Production 狀態
+
+2026-07-23 已完成會員平台、LT 上載發布、歷史紀錄、個人化 Green Path、PNG 分享圖、篩選式批量 ZIP 及手機版穩定化。重大改動前必須完成 [QA_CHECKLIST.md](QA_CHECKLIST.md)。
