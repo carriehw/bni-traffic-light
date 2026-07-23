@@ -24,11 +24,13 @@ ON CONFLICT(id) DO UPDATE SET slug=excluded.slug, name=excluded.name, updated_at
 const batches = Array.isArray(data.batches) ? data.batches : [];
 const members = Array.isArray(data.members) ? data.members : [];
 for (const b of batches) {
+  const migrationNote = [b.notes, b.storage_path ? `Original Supabase storage path: ${b.storage_path}` : null]
+    .filter(Boolean).join(' | ') || null;
   lines.push(`INSERT OR REPLACE INTO report_batches
 (id, chapter_id, period_start, period_end, source_filename, storage_path, status, member_count, uploaded_at, published_at, previous_batch_id, notes)
 VALUES (${q(b.id)}, ${q(chapterId)}, ${q(b.period_start)}, ${q(b.period_end)}, ${q(b.source_filename || 'historical.xlsx')},
-${q(b.storage_path)}, ${q(b.status || 'published')}, ${n(b.member_count)}, ${q(b.uploaded_at || b.published_at || now)},
-${q(b.published_at || b.uploaded_at || now)}, ${q(b.previous_batch_id)}, ${q(b.notes)});`);
+NULL, ${q(b.status || 'published')}, ${n(b.member_count)}, ${q(b.uploaded_at || b.published_at || now)},
+${q(b.published_at || b.uploaded_at || now)}, ${q(b.previous_batch_id)}, ${q(migrationNote)});`);
 }
 
 for (const m of members) {
@@ -49,4 +51,5 @@ lines.push('COMMIT;');
 await mkdir(dirname(output), { recursive: true });
 await writeFile(output, `${lines.join('\n\n')}\n`);
 console.log(`Generated ${output}: ${batches.length} batches, ${members.length} member rows.`);
+console.log('Historical Supabase storage paths were retained in notes only; D1 storage_path stays null until an R2 object exists.');
 console.log(`Import with: npx wrangler d1 execute DB --remote --file=${output}`);
