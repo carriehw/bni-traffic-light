@@ -15,7 +15,9 @@ const n = value => Number.isFinite(Number(value)) ? String(Math.trunc(Number(val
 const normalize = value => String(value || '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
 const json = value => q(JSON.stringify(value ?? {}));
 const now = new Date().toISOString();
-const lines = ['PRAGMA foreign_keys = ON;', 'BEGIN TRANSACTION;'];
+// Wrangler D1 remote execution rejects explicit BEGIN/COMMIT statements.
+// The generated statements are idempotent UPSERTs, so the import is safe to retry.
+const lines = ['PRAGMA foreign_keys = ON;'];
 
 lines.push(`INSERT INTO chapters (id, slug, name, green_threshold, green_rate_goal, created_at, updated_at)
 VALUES (${q(chapterId)}, ${q(chapterSlug)}, ${q(chapterName)}, 70, 75, ${q(now)}, ${q(now)})
@@ -62,7 +64,6 @@ improvement_tips=excluded.improvement_tips, recap_text=excluded.recap_text, raw_
 
 lines.push(`INSERT INTO audit_logs (chapter_id, batch_id, action, actor_role, details, created_at)
 VALUES (${q(chapterId)}, NULL, 'migration_import', 'admin', ${json({ batches: batches.length, members: members.length, source_exported_at: data.exported_at || null })}, ${q(now)});`);
-lines.push('COMMIT;');
 
 await mkdir(dirname(output), { recursive: true });
 await writeFile(output, `${lines.join('\n\n')}\n`);
