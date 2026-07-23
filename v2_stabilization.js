@@ -10,7 +10,7 @@
   function getPlan(m){return typeof window.precisePlan==='function'?window.precisePlan(m):{actions:[],alternatives:[],strengths:[],watchouts:[],gap:Math.max(0,70-safe(m.total_score)),projected:safe(m.total_score)}}
   function wrapText(ctx,text,maxWidth){const out=[];for(const para of String(text||'').split('\n')){let line='';for(const ch of para){const test=line+ch;if(line&&ctx.measureText(test).width>maxWidth){out.push(line);line=ch}else line=test}if(line)out.push(line)}return out}
   function fitText(ctx,text,maxWidth,start=52,min=30){let size=start;while(size>min){ctx.font=`700 ${size}px sans-serif`;if(ctx.measureText(text).width<=maxWidth)break;size-=2}return size}
-  function drawLines(ctx,text,x,y,maxWidth,lineHeight,maxLines){const lines=wrapText(ctx,text,maxWidth).slice(0,maxLines);lines.forEach(line=>{ctx.fillText(line,x,y);y+=lineHeight});return y}
+  function drawLines(ctx,text,x,y,maxWidth,lineHeight,maxLines){const lines=wrapText(ctx,text,maxWidth).slice(0,maxLines);lines.forEach(line=>{ctx.fillText(line,x,y);y+=lineHeight});return{y,count:lines.length}}
   function drawMemberCard(m,canvas){
     const w=1080,h=1440;canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d'),plan=getPlan(m);
     ctx.fillStyle='#f8f4f6';ctx.fillRect(0,0,w,h);ctx.fillStyle='#fff';ctx.fillRect(48,48,w-96,h-96);ctx.fillStyle='#761538';ctx.fillRect(48,48,w-96,112);
@@ -20,12 +20,12 @@
     ctx.fillStyle='#211b1e';ctx.font='700 30px sans-serif';ctx.fillText('Excel 正式分數',360,310);ctx.font='24px sans-serif';metricRows(m).forEach((r,i)=>ctx.fillText(`${r[0]}：${safe(r[1])}／${r[2]}`,360,365+i*48));
     ctx.fillStyle='#761538';ctx.font='700 32px sans-serif';ctx.fillText('綠燈行動建議',92,735);
     ctx.fillStyle=plan.gap?'#725600':'#176b32';ctx.font='700 24px sans-serif';ctx.fillText(plan.gap?`目前 ${safe(m.total_score)} 分｜距離綠燈尚差 ${plan.gap} 分`:`目前已達70分綠燈門檻`,92,780);
-    ctx.fillStyle='#211b1e';ctx.font='23px sans-serif';let y=825;
-    const actions=plan.actions?.length?plan.actions.map(a=>a.text):['保持現有表現，繼續鞏固本月優勢。'];
-    actions.slice(0,3).forEach((t,i)=>{y=drawLines(ctx,`${i+1}. ${t}`,92,y,860,32,2);y+=10});
-    if(plan.strengths?.length){ctx.fillStyle='#761538';ctx.font='700 27px sans-serif';ctx.fillText('已達滿分',92,1045);ctx.fillStyle='#211b1e';ctx.font='23px sans-serif';drawLines(ctx,plan.strengths.join('・'),92,1082,860,30,2)}
-    if(plan.alternatives?.length){ctx.fillStyle='#761538';ctx.font='700 27px sans-serif';ctx.fillText('其他加分方法（備選）',92,1135);ctx.fillStyle='#211b1e';ctx.font='21px sans-serif';let ay=1172;plan.alternatives.slice(0,2).forEach(a=>{ay=drawLines(ctx,`• ${a.text}`,92,ay,860,29,2);ay+=5})}
-    ctx.fillStyle='#761538';ctx.font='700 28px sans-serif';ctx.fillText('本月回顧',92,1280);ctx.fillStyle='#211b1e';ctx.font='21px sans-serif';drawLines(ctx,m.recap_text||`本月總分 ${safe(m.total_score)} 分。`,92,1316,860,29,2);
+    ctx.fillStyle='#211b1e';ctx.font='22px sans-serif';let y=825,lineBudget=5;
+    if(plan.actions?.length){for(let i=0;i<Math.min(3,plan.actions.length)&&lineBudget>0;i++){const a=plan.actions[i],maxLines=Math.min(2,lineBudget),r=drawLines(ctx,`${i+1}.【本方案 +${a.gain}分】${a.text}`,92,y,860,31,maxLines);lineBudget-=r.count;y=r.y+9}}else{const r=drawLines(ctx,'保持現有表現，繼續鞏固本月優勢。',92,y,860,31,2);y=r.y+8}
+    let sectionY=y+5;
+    if(plan.strengths?.length&&sectionY<1090){ctx.fillStyle='#761538';ctx.font='700 26px sans-serif';ctx.fillText('已達滿分',92,sectionY);sectionY+=36;ctx.fillStyle='#211b1e';ctx.font='22px sans-serif';const r=drawLines(ctx,plan.strengths.join('・'),92,sectionY,860,29,2);sectionY=r.y+8}
+    if(plan.alternatives?.length&&sectionY<1200){ctx.fillStyle='#761538';ctx.font='700 26px sans-serif';ctx.fillText('其他加分方法（備選）',92,sectionY);sectionY+=36;ctx.fillStyle='#211b1e';ctx.font='20px sans-serif';const maxAlt=sectionY>1120?1:2;for(const a of plan.alternatives.slice(0,maxAlt)){const r=drawLines(ctx,`• ${a.text}`,92,sectionY,860,27,2);sectionY=r.y+5}}
+    const recapY=Math.min(1270,Math.max(1235,sectionY+12));ctx.fillStyle='#761538';ctx.font='700 27px sans-serif';ctx.fillText('本月回顧',92,recapY);ctx.fillStyle='#211b1e';ctx.font='20px sans-serif';drawLines(ctx,m.recap_text||`本月總分 ${safe(m.total_score)} 分。`,92,recapY+35,860,27,2);
     ctx.strokeStyle='#e5d9df';ctx.beginPath();ctx.moveTo(92,1370);ctx.lineTo(988,1370);ctx.stroke();ctx.fillStyle='#766d72';ctx.font='20px sans-serif';ctx.fillText('BNI BINGO Chapter · Traffic Light Performance Platform',92,1410);
   }
   window.drawMemberCardV2=drawMemberCard;
@@ -33,7 +33,7 @@
     const detail=$('detail');if(!detail||!m)return;const plan=getPlan(m);const headings=[...detail.querySelectorAll('h3')];const oldHeading=headings.find(h=>h.textContent.trim()==='改善建議');if(!oldHeading)return;const oldList=oldHeading.nextElementSibling;oldHeading.textContent='綠燈行動建議';
     const panel=document.createElement('div');panel.className='performance-plan';
     const summary=plan.gap?`目前 ${safe(m.total_score)} 分｜距離綠燈尚差 ${plan.gap} 分`:`目前已達70分綠燈門檻`;
-    const actionHtml=plan.actions?.length?plan.actions.map((a,i)=>`<div class="green-action-card"><span class="green-action-number">${i+1}</span><div><b>${esc(a.category)}</b><p>${esc(a.text.replace(`${a.category}：`,''))}</p></div></div>`).join(''):`<div class="green-complete">已達綠燈，請保持目前表現。</div>`;
+    const actionHtml=plan.actions?.length?plan.actions.map((a,i)=>`<div class="green-action-card"><span class="green-action-number">${i+1}</span><div><div class="green-action-title"><b>${esc(a.category)}</b><span class="action-target">本方案採用 +${a.gain}分</span></div><p>${esc(a.text.replace(`${a.category}：`,''))}</p></div></div>`).join(''):`<div class="green-complete">已達綠燈，請保持目前表現。</div>`;
     const alternatives=plan.alternatives?.length?`<div class="performance-subsection"><h4>其他加分方法</h4><p class="performance-note">以下屬備選，未計入預計總分。</p>${plan.alternatives.slice(0,3).map(a=>`<div class="alternative-action">${esc(a.text)}</div>`).join('')}</div>`:'';
     const strengths=plan.strengths?.length?`<div class="performance-subsection"><h4>已達滿分</h4><div class="strength-chips">${plan.strengths.map(s=>`<span>${esc(s)}</span>`).join('')}</div></div>`:'';
     const watchouts=plan.watchouts?.length?`<div class="performance-subsection"><h4>需留意</h4>${plan.watchouts.map(s=>`<div class="watchout-item">${esc(s)}</div>`).join('')}</div>`:'';
