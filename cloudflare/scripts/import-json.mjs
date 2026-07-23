@@ -54,8 +54,8 @@ VALUES (${q(id)}, ${q(m.batch_id)}, ${q(m.member_name)}, ${q(normalize(m.member_
 ${n(m.training_score)}, ${n(m.absence_score)}, ${n(m.lateness_score)}, ${n(m.one_to_one_score)}, ${n(m.referral_score)},
 ${n(m.biz_give_score)}, ${n(m.visitor_score)}, ${m.previous_score == null ? 'NULL' : n(m.previous_score)},
 ${json(m.improvement_tips || [])}, ${q(m.recap_text)}, ${json(m.raw_metrics || {})})
-ON CONFLICT(id) DO UPDATE SET
-batch_id=excluded.batch_id, member_name=excluded.member_name, normalized_name=excluded.normalized_name,
+ON CONFLICT(batch_id, normalized_name) DO UPDATE SET
+member_name=excluded.member_name,
 total_score=excluded.total_score, light=excluded.light, weeks=excluded.weeks,
 training_score=excluded.training_score, absence_score=excluded.absence_score,
 lateness_score=excluded.lateness_score, one_to_one_score=excluded.one_to_one_score,
