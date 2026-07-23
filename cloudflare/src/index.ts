@@ -296,6 +296,10 @@ export default {
         return json({ ok: true, service: 'bni-traffic-light-cloudflare', time: new Date().toISOString() });
       }
       if (url.pathname === '/api/bni') return api(request, env);
+      if (url.pathname === '/') {
+        const v2Url = new URL('/v2.html', url);
+        return env.ASSETS.fetch(new Request(v2Url, request));
+      }
       return env.ASSETS.fetch(request);
     } catch (error) {
       console.error('Unhandled Worker error', error);
