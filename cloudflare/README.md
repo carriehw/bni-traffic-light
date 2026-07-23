@@ -1,6 +1,8 @@
 # BNI Traffic Light — Cloudflare V3
 
-This directory contains a parallel Cloudflare D1-only implementation. It does **not** change the current Vercel + Supabase production site until acceptance testing passes and the official URL is deliberately switched.
+This directory contains a parallel Cloudflare D1-only implementation.
+
+Staging URL: https://bni-traffic-light.bingo-win.workers.dev It does **not** change the current Vercel + Supabase production site until acceptance testing passes and the official URL is deliberately switched.
 
 ## Architecture
 
