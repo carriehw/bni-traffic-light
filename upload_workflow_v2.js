@@ -23,7 +23,7 @@ function officialTrafficCandidate(wb,name){
   for(let headerIndex=0;headerIndex<Math.min(20,grid.length);headerIndex++){
     const headers=(grid[headerIndex]||[]).map(head),weekIndex=headers.findIndex(x=>x==='week');
     if(weekIndex<0)continue;
-    const expected=[['a'],['l'],['g'],['v'],['121'],['t'],['bizgive'],['totalpts']];
+    const expected=[['a'],['l'],['g'],['v'],['121','1-2-1'],['t'],['bizgive'],['totalpts']];
     const indexes=expected.map((terms,offset)=>{const preferred=weekIndex+1+offset;if(terms.includes(headers[preferred]))return preferred;return headers.findIndex((x,i)=>i>weekIndex&&terms.includes(x))});
     if(indexes.some(i=>i<0))continue;
     const [absenceIndex,latenessIndex,referralIndex,visitorIndex,oneIndex,trainingIndex,bizIndex,totalIndex]=indexes;
