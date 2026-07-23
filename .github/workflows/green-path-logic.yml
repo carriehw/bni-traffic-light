@@ -1,0 +1,25 @@
+name: Green Path Logic Tests
+
+on:
+  push:
+    paths:
+      - 'precision_scoring.js'
+      - 'tests/green_path_logic.test.js'
+      - '.github/workflows/green-path-logic.yml'
+  pull_request:
+    paths:
+      - 'precision_scoring.js'
+      - 'tests/green_path_logic.test.js'
+
+jobs:
+  logic-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run Green Path tests
+        run: node tests/green_path_logic.test.js
