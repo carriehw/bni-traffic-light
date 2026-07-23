@@ -90,3 +90,9 @@ LT 日常派發以需要改善會員為主，因此 ZIP 預設下載黃燈、紅
 **日期：** 2026-07-23
 
 每次功能更新不只提交程式，亦需要更新相關 MD、cache-bust version、production verification 及 regression checklist。
+
+## D-015：長頁面提供浮動返回最頂控制
+
+**日期：** 2026-07-23
+
+會員列表、會員詳情及 LT 後台屬長頁面。使用者捲動超過 600px 後顯示右下角浮動「最頂」按鈕；返回頂部後自動隱藏。控制需支援鍵盤、ARIA、safe-area 及 reduced-motion，不應遮擋主要操作。
