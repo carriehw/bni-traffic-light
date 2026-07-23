@@ -21,7 +21,8 @@ lines.push(`INSERT INTO chapters (id, slug, name, green_threshold, green_rate_go
 VALUES (${q(chapterId)}, ${q(chapterSlug)}, ${q(chapterName)}, 70, 75, ${q(now)}, ${q(now)})
 ON CONFLICT(id) DO UPDATE SET slug=excluded.slug, name=excluded.name, updated_at=excluded.updated_at;`);
 
-const batches = Array.isArray(data.batches) ? data.batches : [];
+const batches = (Array.isArray(data.batches) ? [...data.batches] : [])
+  .sort((a, b) => String(a.period_end || '').localeCompare(String(b.period_end || '')));
 const members = Array.isArray(data.members) ? data.members : [];
 for (const b of batches) {
   const migrationNote = [b.notes, b.storage_path ? `Original Supabase storage path: ${b.storage_path}` : null]
@@ -51,5 +52,6 @@ lines.push('COMMIT;');
 await mkdir(dirname(output), { recursive: true });
 await writeFile(output, `${lines.join('\n\n')}\n`);
 console.log(`Generated ${output}: ${batches.length} batches, ${members.length} member rows.`);
+console.log('Historical batches are imported oldest-first so previous_batch_id foreign keys resolve safely.');
 console.log('Historical Supabase storage paths were retained in notes only; D1 storage_path stays null until an R2 object exists.');
 console.log(`Import with: npx wrangler d1 execute DB --remote --file=${output}`);
