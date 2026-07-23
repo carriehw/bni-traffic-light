@@ -152,6 +152,20 @@ jobs:
             const health = await healthResponse.json();
             if (!healthResponse.ok || health.ok !== true) throw new Error(`Health check failed: ${JSON.stringify(health)}`);
 
+            const homeResponse = await fetch(`${base}/`, { cache: 'no-store' });
+            const home = await homeResponse.text();
+            const requiredV2Assets = [
+              'upload_workflow_v2.js', 'v2_stabilization.js', 'bulk_cards_v2.js',
+              'logic_guard_v2.js', 'blocked_plan_card_v2.js'
+            ];
+            if (!homeResponse.ok || requiredV2Assets.some(asset => !home.includes(asset))) {
+              throw new Error('Full V2 frontend is not being served at the Cloudflare root URL.');
+            }
+            for (const asset of requiredV2Assets) {
+              const assetResponse = await fetch(`${base}/${asset}`, { cache: 'no-store' });
+              if (!assetResponse.ok) throw new Error(`Missing V2 frontend asset: ${asset}`);
+            }
+
             const memberLogin = await post({ action: 'login', role: 'member', password: process.env.MEMBER_PASSWORD });
             const adminLogin = await post({ action: 'login', role: 'admin', password: process.env.ADMIN_PASSWORD });
             await post({ action: 'history' }, memberLogin.token);
