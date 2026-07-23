@@ -45,7 +45,7 @@
   function alternativeText(group,gap){let opts=group.options.filter(o=>o.gain<=gap);const enough=group.options.find(o=>o.gain>=gap);if(enough&&!opts.includes(enough))opts.push(enough);if(!opts.length)opts=[group.options[0]];return `${group.category}：${opts.slice(0,2).map(o=>optionText(group,o)).join('／')}`}
   function precisePlan(m){
     const p=greenPath(m),selectedNames=new Set(p.selected.map(x=>x.group.category));
-    const actions=p.selected.slice(0,3).map(({group,option})=>({category:group.category,gain:option.gain,need:option.need,current:group.current,target:option.target,currentScore:group.currentScore,targetScore:option.targetScore,unit:group.unit,verb:group.verb,text:selectedText(group,option),options:group.options}));
+    const actions=p.selected.map(({group,option})=>({category:group.category,gain:option.gain,need:option.need,current:group.current,target:option.target,currentScore:group.currentScore,targetScore:option.targetScore,unit:group.unit,verb:group.verb,text:selectedText(group,option),options:group.options}));
     const alternatives=p.groups.filter(g=>!selectedNames.has(g.category)).sort((a,b)=>((b.maxScore-b.currentScore)/b.maxScore)-((a.maxScore-a.currentScore)/a.maxScore)||optionEffort(a,a.options[0])-optionEffort(b,b.options[0])).map(g=>({category:g.category,text:alternativeText(g,p.gap||5),currentScore:g.currentScore,maxScore:g.maxScore}));
     const strengths=scoreDefinitions.filter(d=>(Number(m[d.key])||0)>=d.max).map(d=>d.category);
     const watchouts=[];
@@ -60,6 +60,6 @@
   window.trafficMetrics=metrics;window.trafficRawObject=rawObject;window.precisePlan=precisePlan;window.makeTips=preciseTips;window.makeRecap=preciseRecap;
   const oldRenderAll=window.renderAll;if(typeof oldRenderAll==='function')window.renderAll=function(){if(typeof data!=='undefined'&&Array.isArray(data.members))data.members.forEach(refreshMember);return oldRenderAll.apply(this,arguments)};
   const oldShowMember=window.showMember;if(typeof oldShowMember==='function')window.showMember=function(m){return oldShowMember.call(this,refreshMember(m))};
-  window.cardSummary=function(m){refreshMember(m);return{tips:(m.improvement_tips||[]).slice(0,3),summary:m.recap_text||preciseRecap(m),plan:m.performance_plan||precisePlan(m)}};
+  window.cardSummary=function(m){refreshMember(m);return{tips:m.improvement_tips||[],summary:m.recap_text||preciseRecap(m),plan:m.performance_plan||precisePlan(m)}};
   if(typeof data!=='undefined'&&Array.isArray(data.members))data.members.forEach(refreshMember);
 })();
