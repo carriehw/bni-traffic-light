@@ -1,6 +1,5 @@
 interface Env {
   DB: D1Database;
-  FILES: R2Bucket;
   ASSETS: Fetcher;
   MEMBER_PASSWORD: string;
   ADMIN_PASSWORD: string;
@@ -8,7 +7,6 @@ interface Env {
   CHAPTER_SLUG: string;
   CHAPTER_NAME: string;
   SESSION_DAYS: string;
-  MAX_UPLOAD_MB: string;
 }
 
 type Role = 'member' | 'admin';
@@ -90,14 +88,6 @@ function newToken(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
   return hex(bytes);
-}
-
-function decodeBase64(value: string): Uint8Array {
-  const clean = value.includes(',') ? value.split(',').pop()! : value;
-  const binary = atob(clean);
-  const out = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-  return out;
 }
 
 async function ensureChapter(env: Env): Promise<void> {
@@ -216,8 +206,8 @@ async function publish(env: Env, auth: { role: Role; chapter_id: string }, body:
   if (errors.length) return fail(errors.slice(0, 25).join('\n'), 422, 'VALIDATION_FAILED');
 
   const existing = await env.DB.prepare(`
-    SELECT id, storage_path FROM report_batches WHERE chapter_id = ? AND period_end = ?
-  `).bind(auth.chapter_id, report.period_end).first<{ id: string; storage_path: string | null }>();
+    SELECT id FROM report_batches WHERE chapter_id = ? AND period_end = ?
+  `).bind(auth.chapter_id, report.period_end).first<{ id: string }>();
   if (existing && !replaceExisting) return fail('相同月份已存在，請選擇取代月份資料。', 409, 'PERIOD_EXISTS');
 
   const previousBatch = await env.DB.prepare(`
@@ -235,20 +225,6 @@ async function publish(env: Env, auth: { role: Role; chapter_id: string }, body:
   const batchId = crypto.randomUUID();
   const now = new Date().toISOString();
   const filename = cleanFilename(report.source_filename);
-  const storagePath = `reports/${report.period_end.slice(0, 7)}/${batchId}-${filename}`;
-  const base64 = String(body.source_file_base64 ?? '');
-  let uploaded = false;
-
-  if (base64) {
-    const bytes = decodeBase64(base64);
-    const maxBytes = (Number(env.MAX_UPLOAD_MB) || 15) * 1024 * 1024;
-    if (bytes.byteLength > maxBytes) return fail(`Excel檔案不可超過 ${env.MAX_UPLOAD_MB || 15}MB。`, 413, 'FILE_TOO_LARGE');
-    await env.FILES.put(storagePath, bytes, {
-      httpMetadata: { contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
-      customMetadata: { chapter_id: auth.chapter_id, period_end: report.period_end, original_filename: filename }
-    });
-    uploaded = true;
-  }
 
   const statements: D1PreparedStatement[] = [];
   if (existing) statements.push(env.DB.prepare('DELETE FROM report_batches WHERE id = ?').bind(existing.id));
@@ -258,8 +234,8 @@ async function publish(env: Env, auth: { role: Role; chapter_id: string }, body:
        member_count, uploaded_at, published_at, previous_batch_id, notes)
     VALUES (?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?)
   `).bind(batchId, auth.chapter_id, report.period_start, report.period_end, filename,
-    uploaded ? storagePath : null, report.members.length, now, now, previousBatch?.id ?? null,
-    existing ? 'Replaced existing period during Cloudflare publish' : null));
+    null, report.members.length, now, now, previousBatch?.id ?? null,
+    existing ? 'Replaced existing period during Cloudflare publish; original Excel not stored' : 'Original Excel not stored; structured scores only'));
 
   for (const m of report.members) {
     const normalized = normalizeName(m.member_name);
@@ -288,14 +264,12 @@ async function publish(env: Env, auth: { role: Role; chapter_id: string }, body:
 
   try {
     await env.DB.batch(statements);
-    if (existing?.storage_path && existing.storage_path !== storagePath) await env.FILES.delete(existing.storage_path);
   } catch (error) {
-    if (uploaded) await env.FILES.delete(storagePath);
     console.error('Cloudflare publish failed', error);
     return fail('發布失敗，資料未有寫入。請稍後再試。', 500, 'PUBLISH_FAILED');
   }
 
-  return json({ batch_id: batchId, period_end: report.period_end, member_count: report.members.length, replaced: Boolean(existing) });
+  return json({ batch_id: batchId, period_end: report.period_end, member_count: report.members.length, replaced: Boolean(existing), source_file_stored: false });
 }
 
 async function api(request: Request, env: Env): Promise<Response> {
