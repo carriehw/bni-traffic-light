@@ -76,7 +76,7 @@ jobs:
       - name: Generate idempotent D1 import
         run: npm run make:import -- ./tmp/current-history.json ./tmp/import-d1.sql
 
-      - name: Deploy and automatically provision D1 and R2
+      - name: Deploy and automatically provision D1
         run: |
           mkdir -p tmp
           WRANGLER_OUTPUT_FILE_PATH="$PWD/tmp/initial-deploy.ndjson" \
@@ -195,5 +195,5 @@ jobs:
       - name: Deployment summary
         if: success()
         run: |
-          echo 'Cloudflare V3 staging deployment and current-data migration passed.'
-          echo 'The existing Vercel + Supabase production URL has not been switched yet.'
+          echo 'Cloudflare V3 D1-only staging deployment and current-data migration passed.'
+          echo 'Raw Excel files are not stored in Cloudflare. The existing Vercel + Supabase production URL has not been switched yet.'
