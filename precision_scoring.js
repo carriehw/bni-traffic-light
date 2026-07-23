@@ -47,14 +47,6 @@
   }
   const ceilThreshold = (rate,week)=>Math.ceil(rate*week-1e-10);
   const money = v => 'HK$'+Math.round(v).toLocaleString('en-HK');
-  function addAction(list,{category,currentScore,targetScore,current,target,unit,verb}){
-    const need=Math.max(0,target-current),gain=targetScore-currentScore;
-    if(gain<=0||need<=0)return;
-    list.push({
-      category,gain,need,
-      text:`${category}：目前 ${formatValue(current,unit)}（${currentScore}分）；${verb}${formatNeed(need,unit)}，達到 ${formatValue(target,unit)}，可升至 ${targetScore}分（+${gain}分），預計總分 ${Number(this.total||0)+gain}分。`
-    });
-  }
   function formatValue(v,unit){return unit==='money'?money(v):`${Math.round(v)}${unit}`}
   function formatNeed(v,unit){return unit==='money'?money(v):`${Math.round(v)}${unit}`}
 
@@ -63,7 +55,7 @@
     const push=o=>{
       const need=Math.max(0,o.target-o.current),gain=o.targetScore-o.currentScore;
       if(gain<=0||need<=0)return;
-      actions.push({category:o.category,gain,need,text:`${o.category}：目前 ${formatValue(o.current,o.unit)}（${o.currentScore}分）；${o.verb}${formatNeed(need,o.unit)}，達到 ${formatValue(o.target,o.unit)}，可升至 ${o.targetScore}分（+${gain}分），預計總分 ${total+gain}分。`});
+      actions.push({category:o.category,gain,need,current:o.current,target:o.target,currentScore:o.currentScore,targetScore:o.targetScore,unit:o.unit,verb:o.verb,text:`${o.category}：目前 ${formatValue(o.current,o.unit)}（${o.currentScore}分）；${o.verb}${formatNeed(need,o.unit)}，達到 ${formatValue(o.target,o.unit)}，可升至 ${o.targetScore}分（+${gain}分），預計總分 ${total+gain}分。`});
     };
     if(x.week && x.week>0 && x.G!==null){
       const s=Number(m.referral_score)||0;
@@ -119,6 +111,8 @@
   }
   function refreshMember(m){if(!m)return m;m.improvement_tips=preciseTips(m);m.recap_text=preciseRecap(m);return m;}
 
+  window.trafficMetrics=metrics;
+  window.trafficRawObject=rawObject;
   window.precisePlan=precisePlan;
   window.makeTips=preciseTips;
   window.makeRecap=preciseRecap;
