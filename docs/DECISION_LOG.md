@@ -35,3 +35,16 @@
 **Decision:** Scoring rules, workflow and interface decisions are stored under `/docs` and updated with meaningful releases.
 
 **Reason:** Allow future LT teams and developers to understand and maintain the platform without relying on chat history.
+
+## 2026-07-23 — Data accuracy and presentation clarity take priority
+
+**Decision:** Every interface change must protect the original Excel values and make it visually obvious whether a number is official historical data or an advisory projection.
+
+**Rules:**
+- Official totals, category scores, light colours, period dates and member names come from the published Excel record.
+- Charts and cards may reorganise official data, but may not recalculate or smooth it.
+- Improvement recommendations and projected totals must be labelled as advisory and must never appear inside the official trend table.
+- The complete official table remains available for audit and cross-checking.
+- No aesthetic simplification may hide a discrepancy, missing field or warning.
+
+**Reason:** The platform is used for member performance review. A visually attractive but ambiguous number would be more harmful than a plain but traceable presentation.
