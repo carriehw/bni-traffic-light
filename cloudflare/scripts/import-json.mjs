@@ -29,12 +29,14 @@ const batches = (Array.isArray(data.batches) ? [...data.batches] : [])
   .sort((a, b) => String(a.period_end || '').localeCompare(String(b.period_end || '')));
 const members = Array.isArray(data.members) ? data.members : [];
 for (const b of batches) {
-  const migrationNote = [b.notes, b.storage_path ? `Original Supabase storage path: ${b.storage_path}` : null]
+  const sourceStatus = String(b.status || 'published');
+  const targetStatus = sourceStatus === 'archived' ? 'published' : ['draft', 'published', 'replaced'].includes(sourceStatus) ? sourceStatus : 'published';
+  const migrationNote = [b.notes, sourceStatus !== targetStatus ? `Original Supabase status: ${sourceStatus}` : null, b.storage_path ? `Original Supabase storage path: ${b.storage_path}` : null]
     .filter(Boolean).join(' | ') || null;
   lines.push(`INSERT INTO report_batches
 (id, chapter_id, period_start, period_end, source_filename, storage_path, status, member_count, uploaded_at, published_at, previous_batch_id, notes)
 VALUES (${q(b.id)}, ${q(chapterId)}, ${q(b.period_start)}, ${q(b.period_end)}, ${q(b.source_filename || 'historical.xlsx')},
-NULL, ${q(b.status || 'published')}, ${n(b.member_count)}, ${q(b.uploaded_at || b.published_at || now)},
+NULL, ${q(targetStatus)}, ${n(b.member_count)}, ${q(b.uploaded_at || b.published_at || now)},
 ${q(b.published_at || b.uploaded_at || now)}, ${q(b.previous_batch_id)}, ${q(migrationNote)})
 ON CONFLICT(id) DO UPDATE SET
 chapter_id=excluded.chapter_id, period_start=excluded.period_start, period_end=excluded.period_end,
