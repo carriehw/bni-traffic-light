@@ -20,25 +20,10 @@
   const ceilThreshold=(rate,week)=>Math.ceil(rate*week-1e-10);
   const money=v=>'HK$'+Math.round(v).toLocaleString('en-HK');
   const fmt=(v,unit)=>unit==='money'?money(v):`${Math.round(v)}${unit}`;
-  function referenceScores(x){
-    return{
-      training:x.T===null?null:(x.T>=2?10:x.T>=1?5:0),
-      oneToOne:!(x.week>0)||x.O===null?null:(x.O/x.week>=1?10:x.O/x.week>.5?5:0),
-      referral:!(x.week>0)||x.G===null?null:(x.G/x.week>=1.5?20:x.G/x.week>=1.2?15:x.G/x.week>=1?10:x.G/x.week>=.75?5:0),
-      visitor:!(x.week>0)||x.V===null?null:(x.V/x.week>=.75?20:x.V/x.week>=.5?15:x.V/x.week>=.25?10:x.V/x.week>=.1?5:0),
-      biz:x.B===null?null:(x.B>=500000?15:x.B>=200000?10:x.B>=100000?5:0)
-    };
-  }
+  function referenceScores(x){return{training:x.T===null?null:(x.T>=2?10:x.T>=1?5:0),oneToOne:!(x.week>0)||x.O===null?null:(x.O/x.week>=1?10:x.O/x.week>.5?5:0),referral:!(x.week>0)||x.G===null?null:(x.G/x.week>=1.5?20:x.G/x.week>=1.2?15:x.G/x.week>=1?10:x.G/x.week>=.75?5:0),visitor:!(x.week>0)||x.V===null?null:(x.V/x.week>=.75?20:x.V/x.week>=.5?15:x.V/x.week>=.25?10:x.V/x.week>=.1?5:0),biz:x.B===null?null:(x.B>=500000?15:x.B>=200000?10:x.B>=100000?5:0)}}
   function buildGroups(m){
     const x=metrics(m),refs=referenceScores(x),groups=[],unavailable=[];
-    const add=(category,current,currentScore,maxScore,unit,verb,levels,reference)=>{
-      if(currentScore>=maxScore)return;
-      if(current===null||current===undefined){unavailable.push({category,reason:'缺少原始數據'});return}
-      if(reference===null){unavailable.push({category,reason:'缺少 Week 或必要原始數據'});return}
-      if(reference!==currentScore){unavailable.push({category,reason:`原始數據參考分 ${reference} 與 Excel 正式分 ${currentScore} 不一致`});return}
-      const options=levels.map(([target,targetScore])=>({target,targetScore,gain:targetScore-currentScore,need:Math.max(0,target-current)})).filter(o=>o.gain>0&&o.need>0);
-      if(options.length)groups.push({category,current,currentScore,maxScore,unit,verb,options});else unavailable.push({category,reason:'未能由現有原始數據建立下一級門檻'});
-    };
+    const add=(category,current,currentScore,maxScore,unit,verb,levels,reference)=>{if(currentScore>=maxScore)return;if(current===null||current===undefined){unavailable.push({category,reason:'缺少原始數據'});return}if(reference===null){unavailable.push({category,reason:'缺少 Week 或必要原始數據'});return}if(reference!==currentScore){unavailable.push({category,reason:`原始數據參考分 ${reference} 與 Excel 正式分 ${currentScore} 不一致`});return}const options=levels.map(([target,targetScore])=>({target,targetScore,gain:targetScore-currentScore,need:Math.max(0,target-current)})).filter(o=>o.gain>0&&o.need>0);if(options.length)groups.push({category,current,currentScore,maxScore,unit,verb,options});else unavailable.push({category,reason:'未能由現有原始數據建立下一級門檻'})};
     add('培訓',x.T,officialScore(m,'training_score'),10,'次','增加',[[1,5],[2,10]],refs.training);
     add('1-2-1',x.O,officialScore(m,'one_to_one_score'),10,'次','增加',x.week>0?[[Math.floor(.5*x.week)+1,5],[Math.ceil(x.week),10]]:[],refs.oneToOne);
     add('引薦',x.G,officialScore(m,'referral_score'),20,'個','增加',x.week>0?[[ceilThreshold(.75,x.week),5],[ceilThreshold(1,x.week),10],[ceilThreshold(1.2,x.week),15],[ceilThreshold(1.5,x.week),20]]:[],refs.referral);
@@ -46,18 +31,24 @@
     add('嘉賓',x.V,officialScore(m,'visitor_score'),20,'位','增加',x.week>0?[[ceilThreshold(.1,x.week),5],[ceilThreshold(.25,x.week),10],[ceilThreshold(.5,x.week),15],[ceilThreshold(.75,x.week),20]]:[],refs.visitor);
     return{x,refs,groups,unavailable};
   }
-  function optionEffort(group,opt){return group.unit==='money'?opt.need/100000:opt.need}
+  function optionEffort(group,opt){
+    if(group.category==='培訓')return opt.need;
+    if(group.category==='1-2-1')return opt.need;
+    if(group.category==='引薦')return opt.need*1.25;
+    if(group.category==='嘉賓')return opt.need*2;
+    if(group.category==='生意額')return opt.need/10000;
+    return opt.need;
+  }
   function lexicographicallyBefore(a,b){for(let i=0;i<a.length;i++){if(a[i]!==b[i])return a[i]<b[i]}return false}
   function greenPath(m){
     const total=Number(m.total_score)||0,sum=componentSum(m),gap=Math.max(0,GREEN_TARGET-total),built=buildGroups(m),dataIssues=[];
     if(sum!==total)dataIssues.push(`七項正式分數合計 ${sum} 分，與 Excel 總分 ${total} 分不一致`);
     if(dataIssues.length)return{...built,total,sum,gap,selected:[],projected:null,blocked:true,dataIssues};
     if(!gap)return{...built,total,sum,gap,selected:[],projected:total,blocked:false,dataIssues};
-    const candidates=[];
-    built.groups.forEach((g,gi)=>g.options.forEach(o=>candidates.push({g,gi,o,effort:optionEffort(g,o),opportunity:(g.maxScore-g.currentScore)/g.maxScore})));
+    const candidates=[];built.groups.forEach((g,gi)=>g.options.forEach(o=>candidates.push({g,gi,o,effort:optionEffort(g,o),opportunity:(g.maxScore-g.currentScore)/g.maxScore})));
     let best=null;const maxMask=1<<candidates.length;
-    if(candidates.length<=18){for(let mask=1;mask<maxMask;mask++){let gain=0,effort=0,count=0,opportunity=0,used=new Set(),picked=[];for(let i=0;i<candidates.length;i++)if(mask&(1<<i)){const c=candidates[i];if(used.has(c.gi)){gain=-1;break}used.add(c.gi);gain+=c.o.gain;effort+=c.effort;opportunity+=c.opportunity;count++;picked.push(c)}if(gain<gap)continue;const rank=[gain-gap,count,effort,-opportunity];if(!best||lexicographicallyBefore(rank,best.rank))best={rank,picked}}}
-    if(!best){const picked=[...candidates].sort((a,b)=>(b.o.gain/(b.effort||.01))-(a.o.gain/(a.effort||.01))||b.opportunity-a.opportunity);let gain=0;best={picked:[]};for(const c of picked){if(best.picked.some(x=>x.gi===c.gi))continue;best.picked.push(c);gain+=c.o.gain;if(gain>=gap)break}}
+    if(candidates.length<=18){for(let mask=1;mask<maxMask;mask++){let gain=0,effort=0,count=0,opportunity=0,maxSingleEffort=0,used=new Set(),picked=[];for(let i=0;i<candidates.length;i++)if(mask&(1<<i)){const c=candidates[i];if(used.has(c.gi)){gain=-1;break}used.add(c.gi);gain+=c.o.gain;effort+=c.effort;maxSingleEffort=Math.max(maxSingleEffort,c.effort);opportunity+=c.opportunity;count++;picked.push(c)}if(gain<gap)continue;const overshoot=gain-gap,practicalCost=effort+(overshoot/5)*2,rank=[practicalCost,overshoot,count,maxSingleEffort,-opportunity];if(!best||lexicographicallyBefore(rank,best.rank))best={rank,picked}}}
+    if(!best){const picked=[...candidates].sort((a,b)=>(a.effort/(a.o.gain||1))-(b.effort/(b.o.gain||1))||b.opportunity-a.opportunity);let gain=0;best={picked:[]};for(const c of picked){if(best.picked.some(x=>x.gi===c.gi))continue;best.picked.push(c);gain+=c.o.gain;if(gain>=gap)break}}
     const selected=best.picked.map(c=>({group:c.g,option:c.o})),selectedGain=selected.reduce((s,x)=>s+x.option.gain,0),projected=Math.min(100,total+selectedGain);
     if(selected.some(x=>x.option.gain!==x.option.targetScore-x.group.currentScore))dataIssues.push('其中一項加分幅度與正式分數門檻不一致');
     if(projected-total!==selectedGain)dataIssues.push('預計總分增幅與所選行動加分總和不一致');
@@ -69,9 +60,8 @@
   function precisePlan(m){
     const p=greenPath(m),selectedNames=new Set(p.selected.map(x=>x.group.category));
     const actions=p.blocked?[]:p.selected.map(({group,option})=>({category:group.category,gain:option.gain,need:option.need,current:group.current,target:option.target,currentScore:group.currentScore,targetScore:option.targetScore,unit:group.unit,verb:group.verb,text:selectedText(group,option),options:group.options}));
-    const alternatives=p.groups.filter(g=>!selectedNames.has(g.category)).sort((a,b)=>((b.maxScore-b.currentScore)/b.maxScore)-((a.maxScore-a.currentScore)/a.maxScore)||optionEffort(a,a.options[0])-optionEffort(b,b.options[0])).map(g=>({category:g.category,text:alternativeText(g),currentScore:g.currentScore,maxScore:g.maxScore,options:g.options}));
-    const strengths=scoreDefinitions.filter(d=>officialScore(m,d.key)>=d.max).map(d=>d.category);
-    const watchouts=[];
+    const alternatives=p.groups.filter(g=>!selectedNames.has(g.category)).sort((a,b)=>optionEffort(a,a.options[0])-optionEffort(b,b.options[0])||((b.maxScore-b.currentScore)/b.maxScore)-((a.maxScore-a.currentScore)/a.maxScore)).map(g=>({category:g.category,text:alternativeText(g),currentScore:g.currentScore,maxScore:g.maxScore,options:g.options}));
+    const strengths=scoreDefinitions.filter(d=>officialScore(m,d.key)>=d.max).map(d=>d.category),watchouts=[];
     if(officialScore(m,'absence_score')<15)watchouts.push(`出席：現時 ${officialScore(m,'absence_score')}／15；避免新增缺席，分數按六個月滾動紀錄，以 Excel 為準。`);
     if(officialScore(m,'lateness_score')<10)watchouts.push(`準時：現時 ${officialScore(m,'lateness_score')}／10；避免新增遲到，分數按六個月滾動紀錄，以 Excel 為準。`);
     const activeUnderMax=scoreDefinitions.filter(d=>d.active&&officialScore(m,d.key)<d.max).map(d=>d.category),covered=new Set([...actions.map(a=>a.category),...alternatives.map(a=>a.category),...p.unavailable.map(a=>a.category)]),coverageMissing=activeUnderMax.filter(c=>!covered.has(c));
