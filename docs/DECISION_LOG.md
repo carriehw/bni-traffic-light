@@ -48,3 +48,15 @@
 - No aesthetic simplification may hide a discrepancy, missing field or warning.
 
 **Reason:** The platform is used for member performance review. A visually attractive but ambiguous number would be more harmful than a plain but traceable presentation.
+
+## 2026-07-23 — Audit mode never overwrites official data
+
+**Decision:** The audit view may calculate a reference score from raw metrics, but it must display the uploaded Excel score as the official score and flag differences for manual checking.
+
+**Reason:** Audit calculations are diagnostic. They are not authorised to rewrite published records.
+
+## 2026-07-23 — Simulator results are advisory only
+
+**Decision:** The improvement simulator adds only the next-threshold gains returned by the precise recommendation engine. Its output is labelled as a simulation and is never saved to the database or mixed into historical charts.
+
+**Reason:** Members need planning support without confusing projected performance with official performance.
