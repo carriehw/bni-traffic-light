@@ -25,7 +25,6 @@
     let sectionY=y+5;
     if(actionCount<=3&&plan.strengths?.length&&sectionY<1090){ctx.fillStyle='#761538';ctx.font='700 26px sans-serif';ctx.fillText('已達滿分',92,sectionY);sectionY+=36;ctx.fillStyle='#211b1e';ctx.font='22px sans-serif';const r=drawLines(ctx,plan.strengths.join('・'),92,sectionY,860,29,2);sectionY=r.y+8}
     if(actionCount<=2&&plan.alternatives?.length&&sectionY<1200){ctx.fillStyle='#761538';ctx.font='700 26px sans-serif';ctx.fillText('其他加分方法（備選）',92,sectionY);sectionY+=36;ctx.fillStyle='#211b1e';ctx.font='20px sans-serif';const maxAlt=sectionY>1120?1:2;for(const a of plan.alternatives.slice(0,maxAlt)){const r=drawLines(ctx,`• ${a.text}`,92,sectionY,860,27,2);sectionY=r.y+5}}
-    const recapY=Math.min(1270,Math.max(1235,sectionY+12));ctx.fillStyle='#761538';ctx.font='700 27px sans-serif';ctx.fillText('本月回顧',92,recapY);ctx.fillStyle='#211b1e';ctx.font='20px sans-serif';drawLines(ctx,m.recap_text||`本月總分 ${safe(m.total_score)} 分。`,92,recapY+35,860,27,2);
     ctx.strokeStyle='#e5d9df';ctx.beginPath();ctx.moveTo(92,1370);ctx.lineTo(988,1370);ctx.stroke();ctx.fillStyle='#766d72';ctx.font='20px sans-serif';ctx.fillText('BNI BINGO Chapter · Traffic Light Performance Platform',92,1410);
   }
   window.drawMemberCardV2=drawMemberCard;

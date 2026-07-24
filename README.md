@@ -4,7 +4,7 @@ BNI BINGO 會員表現及綠燈行動平台。會員可查看最新燈號、Exce
 
 ## 正式網址
 
-- Production：<https://bni-traffic-light-eta.vercel.app/>
+- Production：<https://bni-traffic-light.bingo-win.workers.dev/>
 - Repository：<https://github.com/carriehw/bni-traffic-light>
 
 > 團隊請只分享 Production 網址，不需要使用 `/v2.html` 或任何測試參數。
@@ -52,22 +52,22 @@ BNI BINGO 會員表現及綠燈行動平台。會員可查看最新燈號、Exce
 
 ## 技術架構
 
-- Frontend：靜態 HTML、CSS、JavaScript，部署於 Vercel
+- Frontend：靜態 HTML、CSS、JavaScript，由 Cloudflare Workers Static Assets 提供
 - Excel 解析：瀏覽器內使用 SheetJS
-- API：Vercel same-origin proxy `/api/bni`
-- Backend：Supabase Edge Function
-- Database：Supabase Postgres
-- Original files：Supabase Private Storage
+- API：Cloudflare Worker same-origin `/api/bni`
+- Backend：Cloudflare Workers
+- Database：Cloudflare D1
+- Original files：平台不儲存；由 LT 另行保留原始 Excel
 - Authentication：會員及 LT 共用密碼換取限時 session token
 
 ## 資料安全
 
 - 密碼只保存雜湊，不寫入 GitHub 或文件。
-- Supabase service role key 不會暴露於瀏覽器。
-- Excel Storage 為 private。
+- Cloudflare API token 只保存於 GitHub Environment Secrets，不會暴露於瀏覽器。
+- 平台只儲存結構化分數；原始 Excel 由 LT 保管，不會傳送到 D1。
 - LT 密碼只應私下交予獲授權管理員。
 - 本平台供 BINGO Chapter 內部使用，並非 BNI 官方產品。
 
 ## Production 狀態
 
-2026-07-23 已完成會員平台、LT 上載發布、歷史紀錄、個人化 Green Path、PNG 分享圖、篩選式批量 ZIP 及手機版穩定化。重大改動前必須完成 [QA_CHECKLIST.md](QA_CHECKLIST.md)。
+2026-07-24 已完成 Cloudflare Workers + D1 正式遷移、資料逐欄比對、會員／LT 權限、Excel 嚴格驗證、Green Path、PNG、ZIP 及 responsive 驗收。Supabase 保留 read-only 七日作回復保障。重大改動前必須完成 [QA_CHECKLIST.md](QA_CHECKLIST.md)。

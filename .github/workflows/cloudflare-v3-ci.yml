@@ -1,0 +1,39 @@
+name: Cloudflare Production CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare/**'
+      - 'tests/**'
+      - '*.html'
+      - '*.js'
+      - '*.css'
+      - '.github/workflows/cloudflare-v3-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'cloudflare/**'
+      - 'tests/**'
+      - '*.html'
+      - '*.js'
+      - '*.css'
+      - '.github/workflows/cloudflare-v3-ci.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cloudflare/package.json
+      - run: npm install
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run dry-run

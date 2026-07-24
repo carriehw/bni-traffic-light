@@ -1,0 +1,197 @@
+name: Deploy Cloudflare Production
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'cloudflare/**'
+      - '*.html'
+      - '*.js'
+      - '*.css'
+      - '*.jpg'
+      - '.github/workflows/cloudflare-v3-deploy.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: cloudflare-production
+    defaults:
+      run:
+        working-directory: cloudflare
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cloudflare/package.json
+
+      - name: Validate protected deployment secrets
+        env:
+          MEMBER_PASSWORD: ${{ secrets.MEMBER_PASSWORD }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          node - <<'NODE'
+          const required = ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'MEMBER_PASSWORD', 'ADMIN_PASSWORD'];
+          const missing = required.filter(name => !process.env[name]);
+          if (missing.length) {
+            console.error(`Missing GitHub environment secrets: ${missing.join(', ')}`);
+            process.exit(1);
+          }
+          console.log('All protected deployment secrets are present.');
+          NODE
+
+      - run: npm install
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run sync:assets
+
+      - name: Deploy and bind existing D1
+        run: |
+          mkdir -p tmp
+          WRANGLER_OUTPUT_FILE_PATH="$PWD/tmp/initial-deploy.ndjson" \
+            npx wrangler deploy 2>&1 | tee tmp/initial-deploy.log
+
+      - name: Apply D1 schema
+        run: npx wrangler d1 migrations apply DB --remote
+
+      - name: Set member password
+        env:
+          MEMBER_PASSWORD: ${{ secrets.MEMBER_PASSWORD }}
+        run: printf '%s' "$MEMBER_PASSWORD" | npx wrangler secret put MEMBER_PASSWORD
+
+      - name: Set LT password
+        env:
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: printf '%s' "$ADMIN_PASSWORD" | npx wrangler secret put ADMIN_PASSWORD
+
+      - name: Final Cloudflare deployment
+        id: final_deploy
+        run: |
+          WRANGLER_OUTPUT_FILE_PATH="$PWD/tmp/final-deploy.ndjson" \
+            npx wrangler deploy 2>&1 | tee tmp/final-deploy.log
+          URL=$(grep -Eo 'https://[A-Za-z0-9._-]+\.workers\.dev' tmp/final-deploy.log | tail -1 || true)
+          if [ -z "$URL" ] && [ -f tmp/final-deploy.ndjson ]; then
+            URL=$(node - <<'NODE'
+          const fs = require('fs');
+          const text = fs.readFileSync('tmp/final-deploy.ndjson', 'utf8');
+          const urls = text.match(/https:\/\/[A-Za-z0-9._-]+\.workers\.dev/g) || [];
+          console.log(urls.at(-1) || '');
+          NODE
+            )
+          fi
+          if [ -z "$URL" ]; then
+            echo 'Unable to determine the workers.dev deployment URL.' >&2
+            exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Cloudflare production URL: $URL"
+
+      - name: Verify production health, UI, auth, permissions and D1 integrity
+        env:
+          DEPLOYMENT_URL: ${{ steps.final_deploy.outputs.url }}
+          MEMBER_PASSWORD: ${{ secrets.MEMBER_PASSWORD }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          node - <<'NODE'
+          const base = process.env.DEPLOYMENT_URL.replace(/\/$/, '');
+          const request = async (body, token = '') => {
+            const response = await fetch(`${base}/api/bni`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json', ...(token ? { 'x-bni-token': token } : {}) },
+              body: JSON.stringify(body)
+            });
+            const text = await response.text();
+            let json;
+            try { json = JSON.parse(text); } catch { json = { raw: text }; }
+            return { response, json };
+          };
+          const post = async (body, token = '') => {
+            const { response, json } = await request(body, token);
+            if (!response.ok) throw new Error(`${body.action} failed: ${response.status} ${JSON.stringify(json)}`);
+            return json;
+          };
+          const expectStatus = async (body, token, status, code) => {
+            const result = await request(body, token);
+            if (result.response.status !== status || (code && result.json.code !== code)) {
+              throw new Error(`${body.action} expected ${status}/${code}, got ${result.response.status} ${JSON.stringify(result.json)}`);
+            }
+          };
+          const normalize = value => String(value || '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
+          const officialLight = score => score >= 70 ? 'green' : score >= 50 ? 'yellow' : score >= 30 ? 'red' : 'black';
+          const scoreKeys = ['training_score','absence_score','lateness_score','one_to_one_score','referral_score','biz_give_score','visitor_score'];
+          const main = async () => {
+            const healthResponse = await fetch(`${base}/health`, { cache: 'no-store' });
+            const health = await healthResponse.json();
+            if (!healthResponse.ok || health.ok !== true) throw new Error(`Health check failed: ${JSON.stringify(health)}`);
+
+            const homeResponse = await fetch(`${base}/`, { cache: 'no-store' });
+            const home = await homeResponse.text();
+            const requiredAssets = [
+              'upload_workflow_v2.js', 'v2_stabilization.js', 'bulk_cards_v2.js',
+              'logic_guard_v2.js', 'blocked_plan_card_v2.js'
+            ];
+            if (!homeResponse.ok || requiredAssets.some(asset => !home.includes(asset))) {
+              throw new Error('Full V2 frontend is not being served at the Cloudflare root URL.');
+            }
+            for (const asset of requiredAssets) {
+              const assetResponse = await fetch(`${base}/${asset}`, { cache: 'no-store' });
+              if (!assetResponse.ok) throw new Error(`Missing frontend asset: ${asset}`);
+            }
+
+            const memberLogin = await post({ action: 'login', role: 'member', password: process.env.MEMBER_PASSWORD });
+            const adminLogin = await post({ action: 'login', role: 'admin', password: process.env.ADMIN_PASSWORD });
+            await post({ action: 'history' }, memberLogin.token);
+            const target = await post({ action: 'history' }, adminLogin.token);
+            if (!Array.isArray(target.batches) || !target.batches.length) throw new Error('D1 has no published batches.');
+            if (!Array.isArray(target.members) || !target.members.length) throw new Error('D1 has no member scores.');
+
+            const ids = new Set();
+            for (const batch of target.batches) {
+              if (ids.has(batch.id)) throw new Error(`Duplicate batch id: ${batch.id}`);
+              ids.add(batch.id);
+              const count = target.members.filter(row => row.batch_id === batch.id).length;
+              if (count !== Number(batch.member_count)) throw new Error(`Batch member count mismatch for ${batch.period_end}: ${count}/${batch.member_count}`);
+            }
+            const memberKeys = new Set();
+            for (const row of target.members) {
+              const key = `${row.batch_id}|${normalize(row.member_name)}`;
+              if (memberKeys.has(key)) throw new Error(`Duplicate member row: ${key}`);
+              memberKeys.add(key);
+              const sum = scoreKeys.reduce((total, field) => total + Number(row[field]), 0);
+              if (sum !== Number(row.total_score)) throw new Error(`Score sum mismatch: ${key}`);
+              if (row.light !== officialLight(Number(row.total_score))) throw new Error(`Light mismatch: ${key}`);
+            }
+
+            await expectStatus({ action: 'publish', report: {} }, memberLogin.token, 403, 'ADMIN_REQUIRED');
+            await expectStatus({ action: 'publish', report: {} }, adminLogin.token, 422, 'VALIDATION_FAILED');
+            const logoutLogin = await post({ action: 'login', role: 'member', password: process.env.MEMBER_PASSWORD });
+            await post({ action: 'logout' }, logoutLogin.token);
+            await expectStatus({ action: 'history' }, logoutLogin.token, 401, 'SESSION_EXPIRED');
+            console.log(`Production acceptance passed: ${target.batches.length} batches, ${target.members.length} member rows, health, UI assets, auth, permissions, validation, logout and D1 integrity.`);
+          };
+          main().catch(error => { console.error(error); process.exit(1); });
+          NODE
+
+      - name: Remove temporary deployment files
+        if: always()
+        run: rm -rf ./tmp
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo 'Cloudflare Workers + D1 production deployment passed.'
+          echo 'No Supabase import runs during routine production releases; Supabase remains read-only rollback protection.'

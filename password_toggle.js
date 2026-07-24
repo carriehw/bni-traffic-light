@@ -2,7 +2,7 @@
   'use strict';
   function installPasswordToggle(){
     const input=document.getElementById('password');
-    if(!input||document.getElementById('passwordToggle'))return;
+    if(!input||document.getElementById('togglePassword')||document.getElementById('passwordToggle'))return;
 
     const wrap=document.createElement('div');
     wrap.className='password-field-wrap';

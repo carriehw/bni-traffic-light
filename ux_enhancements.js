@@ -12,13 +12,13 @@ const fmt=n=>Number(n).toLocaleString('en-HK',{maximumFractionDigits:3});
 const scoreLight=s=>s>=70?'green':s>=50?'yellow':s>=30?'red':'black';
 const money=v=>`HK$${Math.round(v||0).toLocaleString('en-HK')}`;
 function lineChart(hist){
- const pts=[...hist].reverse(),w=640,h=190,pad=28;
+ const pts=[...hist].reverse(),w=640,h=280,pad=38;
  if(pts.length<2)return '<div class="chart-empty">累積多一個月份後，系統會顯示分數走勢圖。</div>';
  const vals=pts.map(x=>safe(x.score.total_score));
  const min=Math.max(0,Math.min(...vals)-10),max=Math.min(100,Math.max(...vals)+10),range=Math.max(10,max-min);
  const xy=pts.map((x,i)=>({x:pad+i*(w-pad*2)/(pts.length-1),y:h-pad-(safe(x.score.total_score)-min)*(h-pad*2)/range,v:safe(x.score.total_score),m:x.batch.period_end.slice(5,7)}));
  const path=xy.map((p,i)=>`${i?'L':'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
- return `<div class="trend-chart" role="img" aria-label="會員月份總分走勢"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" class="chart-axis"/><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h-pad}" class="chart-axis"/><path d="${path}" class="chart-line"/>${xy.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="5" class="chart-dot"/><text x="${p.x}" y="${Math.max(16,p.y-12)}" text-anchor="middle" class="chart-value">${p.v}</text><text x="${p.x}" y="${h-7}" text-anchor="middle" class="chart-month">${p.m}月</text>`).join('')}</svg></div>`;
+ return `<div class="trend-chart" role="img" aria-label="會員月份總分走勢"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet"><line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" class="chart-axis"/><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h-pad}" class="chart-axis"/><path d="${path}" class="chart-line"/>${xy.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="5" class="chart-dot"/><text x="${p.x}" y="${Math.max(16,p.y-12)}" text-anchor="middle" class="chart-value">${p.v}</text><text x="${p.x}" y="${h-7}" text-anchor="middle" class="chart-month">${p.m}月</text>`).join('')}</svg></div>`;
 }
 function referenceScores(m){
  const x=window.trafficMetrics?trafficMetrics(m):{},r={};

@@ -2,12 +2,13 @@
 
 ## 1. Production Resources
 
-- Production：<https://bni-traffic-light-eta.vercel.app/>
+- Production：<https://bni-traffic-light.bingo-win.workers.dev/>
 - Repository：<https://github.com/carriehw/bni-traffic-light>
-- Vercel project：`bni-traffic-light-eta`
-- Supabase project ID：`qyufbsvrophwzcwlkppv`
-- Supabase Edge Function：`bni-api`
-- Vercel API proxy：`/api/bni`
+- Cloudflare Worker：`bni-traffic-light`
+- Cloudflare D1：`bni-traffic-light`
+- Production branch：`main`
+- API：same-origin `/api/bni`
+- Recovery source：原 Supabase project `qyufbsvrophwzcwlkppv` 保留 read-only 至 2026-07-31
 
 任何密碼、service role key、session token 都不可寫入本文件或 GitHub。
 
@@ -27,11 +28,11 @@
 
 ### Backend
 
-- Vercel `/api/bni` 將 same-origin POST request 轉發到 Supabase Edge Function。
-- Edge Function 處理 login、history、latest、publish、replace、file storage 及 logout。
-- `report_batches` 保存月份批次。
-- `member_scores` 保存每位會員每月分數及 raw metrics。
-- 原始 Excel 保存到 private Storage bucket。
+- Cloudflare Worker 處理 same-origin `/api/bni` 的 login、history、publish、replace 及 logout。
+- D1 `report_batches` 保存月份批次。
+- D1 `member_scores` 保存每位會員每月分數及 raw metrics。
+- session token 只以 SHA-256 hash 保存於 D1。
+- 原始 Excel 只在瀏覽器解析，不會傳送或儲存於 Cloudflare；LT 必須另行保留原檔。
 
 ## 3. Data Contract
 
@@ -56,9 +57,9 @@ Backend 會拒絕七項得分合計不等於 `total_score` 的發布。
 ## 4. Authentication
 
 - 會員及 LT 使用不同共用密碼。
-- Backend 將密碼 hash 與 chapter record 比較。
-- 登入成功後發出限時 session token。
-- LT session 時效較短。
+- Worker 使用 secrets 驗證會員及 LT 密碼。
+- 登入成功後發出限時 session token，D1 只保存 token hash。
+- 登出會在伺服器端即時刪除 session token。
 - 權限判斷必須由 backend session 驗證，不可只依靠前端隱藏按鈕。
 
 ## 5. Non-negotiable Product Rules
@@ -76,11 +77,11 @@ Backend 會拒絕七項得分合計不等於 `total_score` 的發布。
 
 每次 production code 更新：
 
-1. 更新相關 module。
+1. 由 feature branch 更新相關 module。
 2. 更新 `v2.html` cache-bust version。
-3. 等待 Vercel deployment。
-4. Fetch production 根網址，確認新 version。
-5. Fetch 修改後的 JS／CSS，確認正式內容。
+3. 完成 CI、Cloudflare staging deployment 及 acceptance。
+4. Merge 到 `main`，由 GitHub Actions 部署 Cloudflare production。
+5. 核對 production 根網址、`/health`、JS／CSS version 及 D1 資料。
 6. 完成 [QA_CHECKLIST.md](QA_CHECKLIST.md) 對應項目。
 7. 更新文件及 Decision Log。
 
@@ -88,18 +89,18 @@ Backend 會拒絕七項得分合計不等於 `total_score` 的發布。
 
 ### 目前可用但建議日後改善
 
-- Production 由 `v2.html` 動態讀取 `index.html` 再注入 V2 modules。這個穩定層解決了上線問題，下一次大型改版應整理為單一清晰入口及正式 module imports。
+- Production 仍由 `v2.html` 動態讀取 `index.html` 再注入 V2 modules。這個穩定層解決了上線問題，下一次大型改版應整理為單一清晰入口及正式 module imports。
 - 暫未有 Playwright／Cypress 自動 browser regression tests。
 - 登入使用 chapter-level 共用密碼，而非每人帳戶。
 - 前端仍為單頁原生 JavaScript，隨功能增加會提高 regression 風險。
 - 目前主要依靠 manual release QA。
 
-### 建議 V3 前完成
+### 建議下一次大型改版完成
 
 1. 將 loader／overlay 架構整合成正式 modular app。
-2. 建立 test fixtures：正常 Excel、錯欄 Excel、重複會員、分數不一致、舊 raw key。
-3. 加入自動化 smoke tests。
-4. 建立 staging／preview 流程。
+2. 將官方 Excel fixture 去識別化後加入自動 parser tests。
+3. 加入完整自動 browser regression tests。
+4. 評估 custom domain。
 5. 評估 individual login 或 Google Workspace access。
 
 ## 8. Incident Triage
@@ -107,7 +108,7 @@ Backend 會拒絕七項得分合計不等於 `total_score` 的發布。
 ### 登入失敗
 
 - 檢查 `/api/bni` POST
-- 檢查 Edge Function status
+- 檢查 Cloudflare `/health`、Worker logs 及 D1 status
 - 檢查 session expiry
 - 不要在公開訊息要求使用者提供密碼
 
@@ -117,7 +118,7 @@ Backend 會拒絕七項得分合計不等於 `total_score` 的發布。
 - 核對七項合計
 - 核對月份
 - 核對 duplicate period／replace flag
-- 查看 Edge Function error
+- 查看 Cloudflare Worker error logs
 
 ### PNG／ZIP 失敗
 
@@ -137,6 +138,6 @@ Backend 會拒絕七項得分合計不等於 `total_score` 的發布。
 - Product owner：確認計分、建議及會員溝通邏輯
 - LT data owner：每月 Excel 及發布
 - Second checker：發布後抽查
-- Technical maintainer：code、Vercel、Supabase、incident
+- Technical maintainer：code、GitHub Actions、Cloudflare Workers、D1、incident
 
 角色可以由同一人兼任，production 發布仍建議最少有第二位 LT 覆核。
