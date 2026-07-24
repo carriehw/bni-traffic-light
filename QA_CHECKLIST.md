@@ -55,8 +55,8 @@
 - [ ] 根網址載入最新 cache-bust version
 - [ ] 不需要 `/v2.html` 才能使用
 - [ ] 沒有 404 的 JS／CSS／vendor file
-- [ ] Vercel API `/api/bni` 接受 POST
-- [ ] Supabase Edge Function 為 ACTIVE
+- [ ] Cloudflare API `/api/bni` 接受 POST
+- [ ] Cloudflare `/health` 回傳 `ok: true`，D1 資料可讀取
 
 ### Authentication
 
