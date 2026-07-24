@@ -1,16 +1,23 @@
-name: Cloudflare V3 CI
+name: Cloudflare Production CI
 
 on:
   push:
-    branches: [cloudflare-v3]
+    branches: [main]
     paths:
       - 'cloudflare/**'
       - 'tests/**'
+      - '*.html'
+      - '*.js'
+      - '*.css'
       - '.github/workflows/cloudflare-v3-ci.yml'
   pull_request:
+    branches: [main]
     paths:
       - 'cloudflare/**'
       - 'tests/**'
+      - '*.html'
+      - '*.js'
+      - '*.css'
       - '.github/workflows/cloudflare-v3-ci.yml'
 
 jobs:
