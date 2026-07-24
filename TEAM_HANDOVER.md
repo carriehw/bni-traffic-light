@@ -2,7 +2,7 @@
 
 ## 正式網址
 
-<https://bni-traffic-light-eta.vercel.app/>
+<https://bni-traffic-light.bingo-win.workers.dev/>
 
 請只分享以上網址。團隊不需要使用 `/v2.html`、preview link 或 release query parameter。
 
@@ -57,7 +57,7 @@
 1. 匯出原始 Traffic Excel。
 2. 登入 LT 管理。
 3. 選擇 Excel。
-4. 核對月份、會員數及預覽。
+4. 核對月份、會員數、七項正式分數及預覽。
 5. 下載核對 CSV。
 6. 正式發布。
 7. 抽查 3 位會員。
@@ -78,13 +78,13 @@
 - 錯誤訊息原文
 - 是否只有自己遇到
 
-不要把 LT 密碼、session token 或含敏感資料的完整 Excel 放到公開群組。
+不要把 LT 密碼、session token 或完整 Excel 放到公開群組。原始 Excel 由 LT 負責人私下保存，平台不會代為備份。
 
 ## 可直接轉發的團隊訊息
 
 > 🚦 BNI BINGO 紅黃綠燈平台正式上線
 >
-> 網址：<https://bni-traffic-light-eta.vercel.app/>
+> 網址：<https://bni-traffic-light.bingo-win.workers.dev/>
 >
 > 會員登入後可以搜尋姓名，查看最新燈號、Excel 正式分數、月份變化及個人化綠燈行動建議，亦可下載個人分享圖。
 >
