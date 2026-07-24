@@ -5,7 +5,7 @@
 1. LT 每月資料發布 SOP
 2. 開發及版本更新流程
 
-正式網址：<https://bni-traffic-light-eta.vercel.app/>
+正式網址：<https://bni-traffic-light.bingo-win.workers.dev/>
 
 ---
 
@@ -65,7 +65,7 @@ LT 必須核對：
 4. 如屬相同月份，確認取代提示。
 5. 等待「發布成功」訊息。
 
-原始 Excel 會保存至 Supabase Private Storage，結構化資料會保存到歷史資料庫。
+平台只會將結構化資料保存到 Cloudflare D1；原始 Excel 不會上載或儲存於 Cloudflare，LT 必須另行保留原檔作核對及復原。
 
 ### 6. 發布後驗收
 
@@ -159,7 +159,7 @@ P0 改動必須完成完整 regression test。
 3. 完成功能及文件
 4. 部署 preview
 5. 依 QA checklist 驗收
-6. Merge 到 production
+6. Merge 到 `main`，由 GitHub Actions 部署到 Cloudflare production
 7. 核對正式網址版本
 8. 更新 DECISION_LOG／LESSONS_LEARNED
 
@@ -169,7 +169,7 @@ P0 改動必須完成完整 regression test。
 
 - 正式根網址載入最新 cache-bust version
 - API `/api/bni` 可回應 POST
-- Supabase Edge Function 為 ACTIVE
+- Cloudflare `/health` 回傳 `ok: true`，D1 可讀取
 - 手機及 desktop 均無水平溢出
 - 所有下載功能產生可開啟檔案
 - 文件與實際功能一致
