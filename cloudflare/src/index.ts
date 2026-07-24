@@ -185,11 +185,13 @@ function validateReport(input: unknown): string[] {
   if (!startOk || !endOk) {
     errors.push('月份日期格式不正確。');
   } else {
-    const [year, month] = report.period_start.split('-').map(Number);
+    const periodStart = report.period_start as string;
+    const periodEnd = report.period_end as string;
+    const [year, month] = periodStart.split('-').map(Number);
     const expectedStart = `${year}-${String(month).padStart(2, '0')}-01`;
     const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
     const expectedEnd = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-    if (report.period_start !== expectedStart || report.period_end !== expectedEnd) {
+    if (periodStart !== expectedStart || periodEnd !== expectedEnd) {
       errors.push('發布期間必須是同一月份的第一日至最後一日。');
     }
   }
