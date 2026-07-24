@@ -170,17 +170,45 @@ async function history(env: Env, auth: { role: Role; chapter_id: string }): Prom
   });
 }
 
-function validateReport(report: ReportInput): string[] {
-  const errors: string[] = [];
-  if (!/^20\d{2}-\d{2}-\d{2}$/.test(report?.period_start || '') || !/^20\d{2}-\d{2}-\d{2}$/.test(report?.period_end || '')) {
-    errors.push('月份日期格式不正確。');
-  }
-  if (!report?.source_filename) errors.push('缺少Excel檔案名稱。');
-  if (!Array.isArray(report?.members) || report.members.length < 1) errors.push('Excel沒有會員資料。');
-  if (report.members?.length > 1000) errors.push('單次發布會員數不可超過1000。');
-  const seen = new Set<string>();
+function validIsoDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^20\d{2}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
 
-  for (const m of report.members || []) {
+function validateReport(input: unknown): string[] {
+  const errors: string[] = [];
+  if (!input || typeof input !== 'object') return ['Report格式不正確。'];
+  const report = input as Partial<ReportInput>;
+  const startOk = validIsoDate(report.period_start);
+  const endOk = validIsoDate(report.period_end);
+  if (!startOk || !endOk) {
+    errors.push('月份日期格式不正確。');
+  } else {
+    const [year, month] = report.period_start.split('-').map(Number);
+    const expectedStart = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const expectedEnd = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    if (report.period_start !== expectedStart || report.period_end !== expectedEnd) {
+      errors.push('發布期間必須是同一月份的第一日至最後一日。');
+    }
+  }
+  if (typeof report.source_filename !== 'string' || !report.source_filename.trim()) {
+    errors.push('缺少Excel檔案名稱。');
+  }
+  if (!Array.isArray(report.members) || report.members.length < 1) {
+    errors.push('Excel沒有會員資料。');
+    return errors;
+  }
+  if (report.members.length > 1000) errors.push('單次發布會員數不可超過1000。');
+  const seen = new Set<string>();
+  const limits: Record<string, number> = {
+    training_score: 10, absence_score: 15, lateness_score: 10, one_to_one_score: 10,
+    referral_score: 20, biz_give_score: 15, visitor_score: 20
+  };
+
+  for (const m of report.members) {
+    if (!m || typeof m !== 'object') { errors.push('發現格式不正確的會員資料。'); continue; }
     const name = normalizeName(m.member_name);
     if (!name) { errors.push('發現空白會員姓名。'); continue; }
     if (seen.has(name)) errors.push(`重複會員姓名：${m.member_name}`);
@@ -191,6 +219,11 @@ function validateReport(report: ReportInput): string[] {
       errors.push(`${m.member_name}：正式分數格式不正確。`);
       continue;
     }
+    scoreKeys.forEach((key, index) => {
+      const score = componentScores[index];
+      const max = limits[String(key)];
+      if (score < 0 || score > max) errors.push(`${m.member_name}：${String(key)} 必須介乎0至${max}分。`);
+    });
     const sum = componentScores.reduce((a, b) => a + b, 0);
     if (sum !== total) errors.push(`${m.member_name}：七項合計 ${sum}，Excel總分 ${total}。`);
     if (m.light && m.light !== officialLight(total)) errors.push(`${m.member_name}：燈號與總分不一致。`);
@@ -200,10 +233,11 @@ function validateReport(report: ReportInput): string[] {
 
 async function publish(env: Env, auth: { role: Role; chapter_id: string }, body: Record<string, unknown>): Promise<Response> {
   if (auth.role !== 'admin') return fail('只有LT管理員可以發布資料。', 403, 'ADMIN_REQUIRED');
+  const errors = validateReport(body.report);
+  if (errors.length) return fail(errors.slice(0, 25).join('\n'), 422, 'VALIDATION_FAILED');
   const report = body.report as ReportInput;
   const replaceExisting = body.replace_existing === true;
-  const errors = validateReport(report);
-  if (errors.length) return fail(errors.slice(0, 25).join('\n'), 422, 'VALIDATION_FAILED');
+
 
   const existing = await env.DB.prepare(`
     SELECT id FROM report_batches WHERE chapter_id = ? AND period_end = ?
@@ -272,6 +306,12 @@ async function publish(env: Env, auth: { role: Role; chapter_id: string }, body:
   return json({ batch_id: batchId, period_end: report.period_end, member_count: report.members.length, replaced: Boolean(existing), source_file_stored: false });
 }
 
+async function logout(env: Env, request: Request): Promise<Response> {
+  const token = request.headers.get('x-bni-token') || '';
+  if (token) await env.DB.prepare('DELETE FROM access_sessions WHERE token_hash = ?').bind(await sha256(token)).run();
+  return json({ ok: true });
+}
+
 async function api(request: Request, env: Env): Promise<Response> {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'allow': 'POST, OPTIONS' } });
   if (request.method !== 'POST') return fail('只支援POST request。', 405, 'METHOD_NOT_ALLOWED');
@@ -283,6 +323,7 @@ async function api(request: Request, env: Env): Promise<Response> {
   const auth = await session(env, request);
   if (!auth) return fail('登入已失效，請重新登入。', 401, 'SESSION_EXPIRED');
   if (action === 'history') return history(env, auth);
+  if (action === 'logout') return logout(env, request);
   if (action === 'publish') return publish(env, auth, body);
   return fail('不支援的操作。', 400, 'UNKNOWN_ACTION');
 }
