@@ -2,7 +2,7 @@
 
 This directory contains a parallel Cloudflare D1-only implementation.
 
-Staging URL: https://bni-traffic-light.bingo-win.workers.dev It does **not** change the current Vercel + Supabase production site until acceptance testing passes and the official URL is deliberately switched.
+Production URL: https://bni-traffic-light.bingo-win.workers.dev — promoted after CI, D1 migration, data parity, authentication, validation and interface acceptance passed on 2026-07-24.
 
 ## Architecture
 
@@ -46,7 +46,7 @@ npx wrangler d1 execute DB --remote --file=./tmp/import-d1.sql
 rm -f ./tmp/current-history.json ./tmp/import-d1.sql
 ```
 
-## Verification before cutover
+## Production verification
 
 1. Open `/health`; it must return `ok: true`.
 2. Test member and LT login.
@@ -56,7 +56,7 @@ rm -f ./tmp/current-history.json ./tmp/import-d1.sql
 6. Upload a test month and confirm preview, publish, history and Replace.
 7. Download one PNG and the yellow-or-below ZIP.
 8. Confirm the original Excel remains in the LT-managed backup folder because Cloudflare does not store it.
-9. Keep Supabase read-only for at least seven days after cutover.
+9. Keep Supabase read-only for at least seven days after cutover (through 2026-07-31).
 
 ## Local development
 
