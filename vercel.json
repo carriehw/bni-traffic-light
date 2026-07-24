@@ -1,1 +1,9 @@
-{"redirects":[{"source":"/","destination":"/v2.html","permanent":false}]}
+{
+  "redirects": [
+    {
+      "source": "/:path*",
+      "destination": "https://bni-traffic-light.bingo-win.workers.dev/:path*",
+      "permanent": true
+    }
+  ]
+}
