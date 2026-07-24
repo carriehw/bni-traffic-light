@@ -70,7 +70,7 @@ LT 日常派發以需要改善會員為主，因此 ZIP 預設下載黃燈、紅
 
 **日期：** 2026-07-23
 
-團隊只需使用 `https://bni-traffic-light-eta.vercel.app/`，不應依賴 `/v2.html` 或 release query parameter。
+團隊只需使用 `https://bni-traffic-light.bingo-win.workers.dev/`，不應依賴 `/v2.html` 或 release query parameter。
 
 ## D-013：短期保留 V2 stabilization layer
 
@@ -120,3 +120,10 @@ LT 日常派發以需要改善會員為主，因此 ZIP 預設下載黃燈、紅
 **日期：** 2026-07-23
 
 建立 `tests/green_path_logic.test.js`，固定測試 Carrie、Danielle、Eric、Cheeno、嘉賓分級及總分不一致案例。核心logic修改需通過測試，避免再次漏掉1-2-1或寫錯加分幅度。
+
+
+## D-020：Cloudflare Workers + D1 成為正式 production
+
+**日期：** 2026-07-24
+
+正式根網址改為 `https://bni-traffic-light.bingo-win.workers.dev/`。`main` 為 production source，由 GitHub Actions 部署到 Cloudflare。原始 Excel 只在瀏覽器解析，不上載至 Cloudflare；LT 必須另行保留原檔。Supabase 保留 read-only 七日作回復保障。
