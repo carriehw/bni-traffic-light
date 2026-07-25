@@ -10,9 +10,9 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  const PDFJS_VERSION = '6.1.200';
-  const PDFJS_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.min.mjs`;
-  const PDFJS_WORKER_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+  const PDFJS_URL = '/pdf.min.mjs';
+  const PDFJS_WORKER_PARTS = ['/pdf.worker.part1.b64', '/pdf.worker.part2.b64'];
+  let pdfWorkerUrl = '';
   const COLUMN_BOUNDS = [218, 264, 309, 353, 390, 427, 477, 528, 576, 646, 675, 733, 790, 835];
   const RAW_KEYS = [
     'present', 'absence', 'late', 'medical', 'substitute',
@@ -225,7 +225,16 @@
 
   async function pdfToPages(file) {
     const pdfjs = await import(PDFJS_URL);
-    pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
+    if (!pdfWorkerUrl) {
+      const responses = await Promise.all(PDFJS_WORKER_PARTS.map(path => fetch(path)));
+      if (responses.some(response => !response.ok)) throw new Error('未能載入網站內置 PDF 解析器。');
+      const encoded = (await Promise.all(responses.map(response => response.text()))).join('');
+      const binary = atob(encoded);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+      pdfWorkerUrl = URL.createObjectURL(new Blob([bytes], { type: 'text/javascript' }));
+    }
+    pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
     const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
     const document = await task.promise;
     if (document.numPages < 1 || document.numPages > 20) throw new Error('PDF頁數唔符合PALMS月報格式。');
