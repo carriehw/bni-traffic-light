@@ -6,7 +6,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const cloudflareDir = resolve(here, '..');
 const root = resolve(cloudflareDir, '..');
 const output = join(cloudflareDir, 'public');
-const allowed = new Set(['.html', '.js', '.css', '.jpg', '.jpeg', '.png', '.svg', '.webp', '.ico', '.json']);
+const allowed = new Set(['.html', '.js', '.mjs', '.b64', '.css', '.jpg', '.jpeg', '.png', '.svg', '.webp', '.ico', '.json']);
 const excluded = new Set(['vercel.json', 'package.json', 'package-lock.json']);
 
 await rm(output, { recursive: true, force: true });
