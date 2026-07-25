@@ -142,7 +142,8 @@ jobs:
             const home = await homeResponse.text();
             const requiredAssets = [
               'upload_workflow_v2.js', 'palms_pdf_workflow_v3.js', 'v2_stabilization.js', 'bulk_cards_v2.js',
-              'logic_guard_v2.js', 'blocked_plan_card_v2.js'
+              'logic_guard_v2.js', 'blocked_plan_card_v2.js', 'pdf.min.mjs',
+              'pdf.worker.part1.b64', 'pdf.worker.part2.b64'
             ];
             if (!homeResponse.ok || requiredAssets.some(asset => !home.includes(asset))) {
               throw new Error('Full V2 frontend is not being served at the Cloudflare root URL.');
